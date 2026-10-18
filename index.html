@@ -47,55 +47,60 @@
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      padding: calc(env(safe-area-inset-top, 20px) + 20px) 20px 30px;
+      padding: calc(env(safe-area-inset-top, 20px) + 20px) 15px 30px;
     }
 
     .header {
       text-align: center;
       width: 100%;
-      max-width: 90vw;
+      padding: 0 10px;
     }
 
-    /* 优化发光，彻底解决切割框问题 */
+    /* 标题样式：彻底去除导致切割框的 filter/clip，使用纯原生 text-shadow */
     .header h1 {
-      font-size: 2.35rem;
+      font-size: 2.25rem;
       font-weight: 800;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.5px;
       color: #ff85ad;
-      /* 纯文字多重软柔光晕，无裁剪盒边界 */
       text-shadow: 
-        0 0 8px rgba(255, 255, 255, 0.7),
-        0 0 16px rgba(255, 133, 173, 0.65),
-        0 0 24px rgba(255, 106, 176, 0.45);
+        0 0 6px rgba(255, 255, 255, 0.8),
+        0 0 14px rgba(255, 133, 173, 0.7),
+        0 0 22px rgba(255, 106, 176, 0.5);
       margin-bottom: 8px;
-      padding: 4px 10px;
-      line-height: 1.2;
+      line-height: 1.25;
+      white-space: nowrap;
     }
 
     .header p {
       font-size: 0.95rem;
       color: #fce7f3;
-      opacity: 0.88;
-      letter-spacing: 0.4px;
+      opacity: 0.9;
+      letter-spacing: 0.3px;
       font-weight: 400;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+      line-height: 1.35;
     }
 
-    /* 右上角音乐控制开关 */
+    /* 右上角独立音乐控制键 */
     .music-btn {
       position: absolute;
       top: calc(env(safe-area-inset-top, 20px) + 15px);
-      right: 20px;
-      z-index: 20;
+      right: 16px;
+      z-index: 30;
       pointer-events: auto;
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: #fff;
-      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 600;
       padding: 6px 14px;
       border-radius: 20px;
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* 初始吹气交互组件容器 */
@@ -110,18 +115,19 @@
       align-items: center;
       gap: 10px;
       transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+      width: max-content;
     }
 
-    /* 初始粉色吹气按钮（保持一行） */
+    /* 初始粉色吹气按钮（强制单行） */
     .blow-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 13px 36px;
+      padding: 12px 34px;
       border-radius: 40px;
       border: none;
       color: #ffffff;
-      font-size: 1.18rem;
+      font-size: 1.15rem;
       font-weight: 700;
       cursor: pointer;
       background: linear-gradient(135deg, #ff7eaf 0%, #ff699a 100%);
@@ -129,11 +135,8 @@
       transition: all 0.2s ease;
       touch-action: manipulation;
       letter-spacing: 0.5px;
-      white-space: nowrap; /* 强制单行 */
-    }
-
-    .blow-btn:hover {
-      transform: scale(1.03);
+      white-space: nowrap !important;
+      width: max-content;
     }
 
     .blow-btn:active {
@@ -147,7 +150,7 @@
     }
 
     .sub-tip {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: #fbcfe8;
       opacity: 0.85;
       text-align: center;
@@ -155,7 +158,7 @@
       white-space: nowrap;
     }
 
-    /* 独立 Relight 容器（停顿后快速登场） */
+    /* 吹灭后登场的 Relight 容器 */
     .relight-action {
       position: absolute;
       top: 54%;
@@ -169,35 +172,31 @@
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.26s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
+      width: max-content;
     }
 
-    /* 白色半透明、纯净描边、强制不折行的 Relight Again 按钮 */
+    /* 纯净白描边 Relight Again 按钮（强制一行、无粉色外光） */
     .relight-btn {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 13px 36px;
+      padding: 12px 34px;
       border-radius: 40px;
-      background: rgba(255, 255, 255, 0.14);
-      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.15);
+      border: 1.5px solid rgba(255, 255, 255, 0.9);
       color: #ffffff;
-      font-size: 1.18rem;
+      font-size: 1.15rem;
       font-weight: 800;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       cursor: pointer;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      /* 纯净白光投影，彻底移除任何粉色外发光 */
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 14px rgba(255, 255, 255, 0.18), inset 0 0 8px rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(255, 255, 255, 0.18);
       transition: all 0.2s ease;
       touch-action: manipulation;
-      white-space: nowrap !important; /* 关键：坚决保持一行排版 */
-      flex-shrink: 0;
-    }
-
-    .relight-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
-      transform: scale(1.03);
+      white-space: nowrap !important; /* 强制绝对单行排版 */
+      width: max-content !important;
+      min-width: 170px;
     }
 
     .relight-btn:active {
@@ -224,7 +223,8 @@
 </head>
 <body>
 
-  <button class="music-btn" id="musicToggle">Music: On</button>
+  <!-- 音乐开关 -->
+  <button class="music-btn" id="musicToggle">Music: ON</button>
   <canvas id="stage"></canvas>
 
   <div class="ui-layer">
@@ -239,7 +239,7 @@
       <span class="sub-tip" id="statusHint">Listening for your breath or tap directly</span>
     </div>
 
-    <!-- 2. 完全独立的 Relight Again 按钮（纯白描边，单行排版） -->
+    <!-- 2. 完全独立的 Relight Again 按钮（强制单行，纯白描边） -->
     <div class="relight-action" id="relightAction">
       <button class="relight-btn" id="relightBtn">Relight Again</button>
       <span class="sub-tip" style="color: #e2e8f0; opacity: 0.85;">Tap above to relight the candles</span>
@@ -261,7 +261,7 @@
     resize();
     window.addEventListener('resize', resize);
 
-    // --- 2. 状态机与保护机制 ---
+    // --- 2. 状态机定义 ---
     let isLit = true;
     let micStarted = false;
     let audioCtx = null;
@@ -269,7 +269,7 @@
     let micStream = null;
     let blowFrames = 0;
     let canBlow = true;
-    let isMusicEnabled = true;
+    let isMusicOn = true;
 
     const mainTitle = document.getElementById('mainTitle');
     const subTitle = document.getElementById('subTitle');
@@ -280,8 +280,8 @@
     const statusHint = document.getElementById('statusHint');
     const musicToggle = document.getElementById('musicToggle');
 
-    // --- 3. 八音盒质感生日歌合成器（纯原生 Web Audio，秒播无卡顿） ---
-    function ensureAudioContext() {
+    // --- 3. 移动端强制唤醒音频管道 (iOS/Android 终极兼容) ---
+    function initOrResumeAudio() {
       if (!audioCtx) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContextClass();
@@ -291,48 +291,66 @@
       }
     }
 
-    function playMusicBoxNote(freq, time, duration) {
-      if (!audioCtx || !isMusicEnabled) return;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      // 正弦波+轻微倍频，模拟清脆晶莹的水晶八音盒
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, time);
+    // 单个八音盒水晶纯音合成
+    function playNote(freq, startTime, duration) {
+      if (!audioCtx || !isMusicOn) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
 
-      gain.gain.setValueAtTime(0.001, time);
-      gain.gain.exponentialRampToValueAtTime(0.25, time + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+        osc.type = 'triangle'; // 晶莹八音盒音色
+        osc.frequency.setValueAtTime(freq, startTime);
 
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
-      osc.start(time);
-      osc.stop(time + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      } catch (e) {
+        console.warn(e);
+      }
     }
 
+    // 播放完整生日歌
     function playBirthdaySong() {
-      if (!isMusicEnabled) return;
-      ensureAudioContext();
-      const notes = [
-        { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.7 }, { f: 261.63, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 329.63, d: 1.2 },
-        { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.7 }, { f: 261.63, d: 0.7 }, { f: 392.00, d: 0.7 }, { f: 349.23, d: 1.2 },
-        { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 523.25, d: 0.7 }, { f: 440.00, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 329.63, d: 0.7 }, { f: 293.66, d: 1.0 },
-        { f: 466.16, d: 0.35 }, { f: 466.16, d: 0.35 }, { f: 440.00, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 392.00, d: 0.7 }, { f: 349.23, d: 1.4 }
+      if (!isMusicOn) return;
+      initOrResumeAudio();
+
+      const songNotes = [
+        { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.65 }, { f: 261.63, d: 0.65 }, { f: 349.23, d: 0.65 }, { f: 329.63, d: 1.1 },
+        { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.65 }, { f: 261.63, d: 0.65 }, { f: 392.00, d: 0.65 }, { f: 349.23, d: 1.1 },
+        { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 523.25, d: 0.65 }, { f: 440.00, d: 0.65 }, { f: 349.23, d: 0.65 }, { f: 329.63, d: 0.65 }, { f: 293.66, d: 1.0 },
+        { f: 466.16, d: 0.35 }, { f: 466.16, d: 0.35 }, { f: 440.00, d: 0.65 }, { f: 349.23, d: 0.65 }, { f: 392.00, d: 0.65 }, { f: 349.23, d: 1.4 }
       ];
 
-      let startTime = audioCtx.currentTime + 0.1;
-      notes.forEach(n => {
-        playMusicBoxNote(n.f, startTime, n.d * 1.2);
-        startTime += n.d * 0.95;
+      let t = audioCtx.currentTime + 0.05;
+      songNotes.forEach(n => {
+        playNote(n.f, t, n.d * 1.1);
+        t += n.d * 0.95;
       });
     }
 
+    // 音乐开关按钮交互
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      isMusicEnabled = !isMusicEnabled;
-      musicToggle.innerText = isMusicEnabled ? "Music: On" : "Music: Off";
-      musicToggle.style.opacity = isMusicEnabled ? "1" : "0.5";
-      if (isMusicEnabled) playBirthdaySong();
+      initOrResumeAudio();
+      isMusicOn = !isMusicOn;
+      musicToggle.innerText = isMusicOn ? "Music: ON" : "Music: OFF";
+      musicToggle.style.opacity = isMusicOn ? "1" : "0.5";
+      if (isMusicOn) {
+        playBirthdaySong();
+      }
+    });
+
+    // 屏幕任意点击/触摸自动解锁音频通道（突破 iOS 限制）
+    ['touchstart', 'touchend', 'click'].forEach(evt => {
+      window.addEventListener(evt, () => {
+        initOrResumeAudio();
+      }, { once: true });
     });
 
     // --- 4. 手势 / 鼠标滑动 3D 旋转控制 ---
@@ -457,20 +475,23 @@
       }
     }
 
-    // --- 7. 吹熄与重置动效 ---
+    // --- 7. 吹熄与重置点燃逻辑 ---
     function extinguish() {
       if (!isLit || !canBlow) return;
       isLit = false;
       canBlow = false;
       blowFrames = 0;
 
+      // 文字更新（安全无裁剪）
       mainTitle.innerText = "Wish Granted!";
       subTitle.innerText = "May all your dreams sparkle into reality!";
-      
+
+      // 隐藏当前吹气按钮，触发迸发与音乐
       initialAction.classList.add('hidden');
       createBurst();
-      playBirthdaySong(); // 吹熄蜡烛时播放生日歌
+      playBirthdaySong();
 
+      // 1.6 秒后，纯净单行的 Relight Again 按钮登场
       setTimeout(() => {
         if (!isLit) {
           relightAction.classList.add('visible');
@@ -478,11 +499,10 @@
       }, 1600);
     }
 
-    // 彻底解决点燃后“自动又被吹灭”的痛点
     function relight() {
       isLit = true;
-      canBlow = false;       // 强行冷却锁定
-      blowFrames = 0;        // 彻底清空累计的音量帧
+      canBlow = false;
+      blowFrames = 0;
       burstParticles.length = 0;
 
       mainTitle.innerText = "Happy Birthday!";
@@ -495,7 +515,7 @@
         blowBtn.classList.add('listening');
       }
 
-      // 关键防护：重置后 2.0 秒内完全屏蔽一切气流输入，防触碰杂音误判
+      // 2 秒安全冷却，彻底防止触摸杂音导致的秒灭
       setTimeout(() => {
         if (isLit) {
           canBlow = true;
@@ -504,11 +524,11 @@
       }, 2000);
     }
 
-    // --- 8. 麦克风真实拾音与更严格的吹气检测算法 ---
+    // --- 8. 麦克风真实拾音与气流分析 ---
     async function initMicrophone() {
       if (micStarted) return;
       try {
-        ensureAudioContext();
+        initOrResumeAudio();
 
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -525,7 +545,7 @@
         const source = audioCtx.createMediaStreamSource(micStream);
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 320; // 严格聚焦持续风声低频段
+        filter.frequency.value = 320;
 
         source.connect(filter);
         filter.connect(analyser);
@@ -555,7 +575,6 @@
           }
           const lowAverage = energySum / lowBins;
 
-          // 提高门槛并要求“连续 5 帧”持续稳定气流，彻底避免瞬间杂音导致的误熄灭
           if (lowAverage > 36) {
             blowFrames++;
             if (blowFrames >= 5) {
@@ -576,9 +595,10 @@
       }
     }
 
+    // 绑定交互
     blowBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      ensureAudioContext();
+      initOrResumeAudio();
       if (isLit) {
         if (!micStarted) await initMicrophone();
         extinguish();
@@ -587,13 +607,9 @@
 
     relightBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      initOrResumeAudio();
       relight();
     });
-
-    window.addEventListener('click', () => {
-      ensureAudioContext();
-      if (!micStarted) initMicrophone();
-    }, { once: true });
 
     // --- 9. 触摸 / 拖拽旋转交互 ---
     function onPointerDown(e) {
