@@ -380,7 +380,6 @@
       }, (totalTime + 0.6) * 1000);
     }
 
-    // 核心统一方法：关闭音乐并把按钮变为 OFF
     function stopMusic() {
       isMusicOn = false;
       updateMusicButtonUI();
@@ -508,7 +507,6 @@
       e.stopPropagation();
 
       if (appState === 'READY') {
-        // 点击“Ready to Blow”进入准备吹蜡烛状态：若音乐开启，彻底关闭音乐，UI 立即变成 OFF
         if (isMusicOn) {
           stopMusic();
         }
@@ -556,7 +554,6 @@
       blowFrames = 0;
       appState = 'EXTINGUISHED';
 
-      // 吹灭蜡烛瞬间：若音乐还在响，确保彻底关闭音乐并把按钮变为 OFF
       if (isMusicOn) {
         stopMusic();
       }
@@ -729,7 +726,7 @@
       }
     });
 
-    // --- 9. 适量精美点阵采样（数量收敛，不杂乱，清晰度高） ---
+    // --- 9. 点阵采样（微调：进一步减少粒子，位置微上移至 Y=158） ---
     function sampleTextTargets() {
       const offCanvas = document.createElement('canvas');
       const offCtx = offCanvas.getContext('2d');
@@ -737,7 +734,7 @@
       offCanvas.height = 140;
 
       offCtx.fillStyle = '#ffffff';
-      offCtx.font = '900 31px -apple-system, BlinkMacSystemFont, "Arial Black", "PingFang SC", sans-serif';
+      offCtx.font = '900 30px -apple-system, BlinkMacSystemFont, "Arial Black", "PingFang SC", sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
 
@@ -747,8 +744,8 @@
       const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
       const targets = [];
       
-      // 优化 1：步长微调为 1.65px，点阵数量减少约 35%，字迹匀称不拥挤
-      const step = 1.65;
+      // 优化项：步长增至 2.1px，大幅精炼文字粒子数，消除过度密集
+      const step = 2.1;
 
       for (let y = 0; y < offCanvas.height; y += step) {
         for (let x = 0; x < offCanvas.width; x += step) {
@@ -756,9 +753,10 @@
           const py = Math.floor(y);
           const index = (py * offCanvas.width + px) * 4;
 
-          if (imgData[index + 3] > 155) {
+          if (imgData[index + 3] > 165) {
+            // 优化项：Y 坐标调升至 158（略往上移一点点，透气不压蜡烛）
             const tx = (px - offCanvas.width / 2) * 0.33;
-            const ty = 150 - (py - offCanvas.height / 2) * 0.33;
+            const ty = 158 - (py - offCanvas.height / 2) * 0.33;
             targets.push({ x: tx, y: ty, z: 0 });
           }
         }
@@ -780,26 +778,26 @@
         'rgba(255, 133, 173, '
       ];
 
-      // 优化 2：发散爆炸烟花粒子从 1600 大幅降至 700，刹那间不再过载
-      for (let i = 0; i < 700; i++) {
+      // 优化项：发散爆炸碎屑降至 320 个，轻快灵动，绝不遮挡视野
+      for (let i = 0; i < 320; i++) {
         const cx = candleXs[i % 3];
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const speed = Math.random() * 9 + 2.0;
+        const speed = Math.random() * 7.5 + 1.8;
 
         burstParticles.push({
-          x: cx + (Math.random() - 0.5) * 6,
-          y: 138 + (Math.random() - 0.5) * 6,
-          z: (Math.random() - 0.5) * 6,
+          x: cx + (Math.random() - 0.5) * 4,
+          y: 138 + (Math.random() - 0.5) * 4,
+          z: (Math.random() - 0.5) * 4,
           vx: Math.sin(phi) * Math.cos(theta) * speed,
-          vy: Math.cos(phi) * speed + 0.4,
-          vz: Math.sin(phi) * Math.sin(theta) * speed * 1.2,
-          size: Math.random() * 0.32 + 0.25,
+          vy: Math.cos(phi) * speed + 0.35,
+          vz: Math.sin(phi) * Math.sin(theta) * speed * 1.1,
+          size: Math.random() * 0.3 + 0.22,
           color: burstColors[Math.floor(Math.random() * burstColors.length)],
-          alpha: 0.9,
-          drag: 0.970,
+          alpha: 0.85,
+          drag: 0.965,
           life: 0,
-          maxLife: Math.random() * 180 + 120
+          maxLife: Math.random() * 160 + 100
         });
       }
 
@@ -817,22 +815,22 @@
         const originCandleX = candleXs[i % 3];
         
         const angle = Math.random() * Math.PI * 2;
-        const spreadSpeed = Math.random() * 3.8 + 0.8;
+        const spreadSpeed = Math.random() * 3.2 + 0.6;
 
         textParticles.push({
-          x: originCandleX + (Math.random() - 0.5) * 3,
+          x: originCandleX + (Math.random() - 0.5) * 2,
           y: 138 + Math.random() * 2,
-          z: (Math.random() - 0.5) * 3,
+          z: (Math.random() - 0.5) * 2,
           vx: Math.cos(angle) * spreadSpeed,
-          vy: Math.random() * 4.5 + 1.5,
+          vy: Math.random() * 3.8 + 1.2,
           vz: Math.sin(angle) * spreadSpeed,
           tx: target.x,
           ty: target.y,
           tz: target.z,
-          size: 0.58,
+          size: 0.56,
           color: textParticleColors[i % textParticleColors.length],
           alpha: 0,
-          convergeDelay: Math.random() * 6 + 5,
+          convergeDelay: Math.random() * 5 + 4,
           age: 0,
           seed: Math.random() * 100
         });
@@ -930,10 +928,10 @@
         b.y += b.vy;
         b.z += b.vz;
 
-        b.y += Math.sin(Date.now() * 0.001 + i) * 0.025;
-        b.x += Math.cos(Date.now() * 0.001 + i) * 0.025;
+        b.y += Math.sin(Date.now() * 0.001 + i) * 0.02;
+        b.x += Math.cos(Date.now() * 0.001 + i) * 0.02;
 
-        b.alpha = Math.max(0, 0.9 - (b.life / b.maxLife));
+        b.alpha = Math.max(0, 0.85 - (b.life / b.maxLife));
 
         const proj = project(b.x, b.y, b.z);
 
@@ -962,7 +960,7 @@
           tp.vx *= 0.86;
           tp.vy *= 0.86;
           tp.vz *= 0.86;
-          tp.alpha = Math.min(0.85, tp.age / 8);
+          tp.alpha = Math.min(0.85, tp.age / 6);
         } else {
           const ease = 0.17;
           tp.x += (tp.tx - tp.x) * ease;
