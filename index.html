@@ -34,7 +34,6 @@
       cursor: grabbing;
     }
 
-    /* UI 悬浮层 */
     .ui-layer {
       position: absolute;
       top: 0;
@@ -56,7 +55,6 @@
       padding: 0 10px;
     }
 
-    /* 纯粹柔和淡粉光，无白色发光层 */
     .header h1 {
       font-size: 2.3rem;
       font-weight: 800;
@@ -80,7 +78,6 @@
       line-height: 1.35;
     }
 
-    /* 左下角音乐按钮 */
     .bottom-bar {
       width: 100%;
       display: flex;
@@ -118,7 +115,6 @@
       transform: scale(0.95);
     }
 
-    /* 居中交互容器 */
     .center-action {
       position: absolute;
       top: 54%;
@@ -267,7 +263,7 @@
     window.addEventListener('resize', resize);
 
     // --- 2. 状态机管理 ---
-    let appState = 'READY'; // READY -> BLOWING -> EXTINGUISHED
+    let appState = 'READY';
     let isLit = true;
     let micStarted = false;
     let audioCtx = null;
@@ -276,11 +272,9 @@
     let blowFrames = 0;
     let canBlow = false;
 
-    // 音乐状态
     let isMusicOn = false;
-    let isMusicPlaying = false;
     let songTimer = null;
-    let musicGainNode = null; // 全局音乐增益，方便统一控制音量
+    let musicGainNode = null;
 
     const mainTitle = document.getElementById('mainTitle');
     const subTitle = document.getElementById('subTitle');
@@ -294,17 +288,21 @@
       if (!audioCtx) {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioCtxClass();
-        // 创建全局音乐增益节点（不影响麦克风分析）
         musicGainNode = audioCtx.createGain();
-        musicGainNode.gain.value = 0.6; // 适中音量
+        musicGainNode.gain.value = 0.6;
         musicGainNode.connect(audioCtx.destination);
       }
+      return audioCtx;
+    }
+
+    // 强制恢复 AudioContext 运行状态（关键修复）
+    function resumeAudioContext() {
+      if (!audioCtx) return;
       if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        audioCtx.resume().catch(e => console.warn('resume failed', e));
       }
     }
 
-    // 播放八音盒音符（直接连接到 musicGainNode，不经过分析器）
     function playMusicBoxBell(freq, time, duration, isLow = false) {
       if (!audioCtx || !isMusicOn || !musicGainNode) return;
       try {
@@ -329,63 +327,56 @@
       }
     }
 
-    // 《生日快乐》旋律（C大调，标准版）
-    // 音符频率对照：C4=261.63, D4=293.66, E4=329.63, F4=349.23, G4=392.00, A4=440.00, B4=493.88, C5=523.25
+    // 《生日快乐》旋律
     const birthdayMelody = [
-      // Happy birthday to you
-      { m: 392.00, b: 196.00, d: 0.5 }, // G
-      { m: 392.00, b: 196.00, d: 0.25 }, // G
-      { m: 440.00, b: 220.00, d: 0.75 }, // A
-      { m: 392.00, b: 196.00, d: 0.75 }, // G
-      { m: 523.25, b: 261.63, d: 0.75 }, // C5
-      { m: 493.88, b: 246.94, d: 1.2 }, // B4
-
-      // Happy birthday to you
       { m: 392.00, b: 196.00, d: 0.5 },
       { m: 392.00, b: 196.00, d: 0.25 },
       { m: 440.00, b: 220.00, d: 0.75 },
       { m: 392.00, b: 196.00, d: 0.75 },
-      { m: 587.33, b: 293.66, d: 0.75 }, // D5
-      { m: 523.25, b: 261.63, d: 1.2 },  // C5
+      { m: 523.25, b: 261.63, d: 0.75 },
+      { m: 493.88, b: 246.94, d: 1.2 },
 
-      // Happy birthday dear [name]
       { m: 392.00, b: 196.00, d: 0.5 },
       { m: 392.00, b: 196.00, d: 0.25 },
-      { m: 783.99, b: 392.00, d: 0.75 }, // G5
-      { m: 659.25, b: 329.63, d: 0.75 }, // E5
-      { m: 523.25, b: 261.63, d: 0.75 }, // C5
-      { m: 493.88, b: 246.94, d: 0.75 }, // B4
-      { m: 440.00, b: 220.00, d: 1.2 },  // A4
+      { m: 440.00, b: 220.00, d: 0.75 },
+      { m: 392.00, b: 196.00, d: 0.75 },
+      { m: 587.33, b: 293.66, d: 0.75 },
+      { m: 523.25, b: 261.63, d: 1.2 },
 
-      // Happy birthday to you
-      { m: 698.46, b: 349.23, d: 0.5 },  // F5
-      { m: 698.46, b: 349.23, d: 0.25 }, // F5
-      { m: 659.25, b: 329.63, d: 0.75 }, // E5
-      { m: 523.25, b: 261.63, d: 0.75 }, // C5
-      { m: 587.33, b: 293.66, d: 0.75 }, // D5
-      { m: 523.25, b: 261.63, d: 1.5 }   // C5
+      { m: 392.00, b: 196.00, d: 0.5 },
+      { m: 392.00, b: 196.00, d: 0.25 },
+      { m: 783.99, b: 392.00, d: 0.75 },
+      { m: 659.25, b: 329.63, d: 0.75 },
+      { m: 523.25, b: 261.63, d: 0.75 },
+      { m: 493.88, b: 246.94, d: 0.75 },
+      { m: 440.00, b: 220.00, d: 1.2 },
+
+      { m: 698.46, b: 349.23, d: 0.5 },
+      { m: 698.46, b: 349.23, d: 0.25 },
+      { m: 659.25, b: 329.63, d: 0.75 },
+      { m: 523.25, b: 261.63, d: 0.75 },
+      { m: 587.33, b: 293.66, d: 0.75 },
+      { m: 523.25, b: 261.63, d: 1.5 }
     ];
 
     function startMusicLoop() {
       if (!isMusicOn || !audioCtx) return;
       if (songTimer) clearTimeout(songTimer);
 
+      // 每次播放前确保 AudioContext 是 running
+      resumeAudioContext();
+
       let now = audioCtx.currentTime + 0.08;
       let totalTime = 0;
 
       birthdayMelody.forEach(note => {
-        // 主旋律（稍响）
         playMusicBoxBell(note.m, now, note.d * 1.3, false);
-        // 低音伴奏（轻柔）
         playMusicBoxBell(note.b, now, note.d * 1.5, true);
-        const step = note.d * 0.95; // 轻微断奏感
+        const step = note.d * 0.95;
         now += step;
         totalTime += step;
       });
 
-      isMusicPlaying = true;
-
-      // 循环：整曲结束后短暂停顿再重复
       songTimer = setTimeout(() => {
         if (isMusicOn) startMusicLoop();
       }, (totalTime + 0.6) * 1000);
@@ -393,7 +384,24 @@
 
     function stopMusic() {
       if (songTimer) clearTimeout(songTimer);
-      isMusicPlaying = false;
+      // 让所有排程中的音符立即静音
+      if (musicGainNode && audioCtx) {
+        try {
+          const now = audioCtx.currentTime;
+          musicGainNode.gain.cancelScheduledValues(now);
+          musicGainNode.gain.setValueAtTime(0, now);
+        } catch (e) {}
+      }
+    }
+
+    function resumeMusicGain() {
+      if (musicGainNode && audioCtx) {
+        try {
+          const now = audioCtx.currentTime;
+          musicGainNode.gain.cancelScheduledValues(now);
+          musicGainNode.gain.setValueAtTime(0.6, now);
+        } catch (e) {}
+      }
     }
 
     function updateMusicButtonUI() {
@@ -406,34 +414,30 @@
       }
     }
 
-    // 音乐开关点击：切换状态，开关音乐
+    // 音乐按钮：切换开关
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       ensureAudioContext();
+      resumeAudioContext();
+
       isMusicOn = !isMusicOn;
       updateMusicButtonUI();
+
       if (isMusicOn) {
+        resumeMusicGain();
         startMusicLoop();
       } else {
         stopMusic();
-        // 立即静音所有已排程的音符（通过断开增益或取消定时器）
-        if (musicGainNode) {
-          musicGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-          musicGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        }
-        // 重新设置增益（下次启动时恢复）
-        setTimeout(() => {
-          if (musicGainNode) {
-            musicGainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
-          }
-        }, 300);
       }
     });
 
-    // --- 4. 麦克风吹气拾音逻辑（改进：避免启动时误触发）---
+    // --- 4. 麦克风吹气拾音逻辑（关键：不打断音乐）---
     async function requestAndStartMic() {
       try {
         ensureAudioContext();
+        resumeAudioContext();
+
+        // 关键：用独立的 MediaStreamAudioSourceNode，不会影响音乐播放
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: false,
@@ -441,6 +445,23 @@
             autoGainControl: false
           }
         });
+
+        // 获取麦克风后再次强制 resume（有些浏览器在此处会挂起 context）
+        resumeAudioContext();
+
+        // 如果麦克风获取导致音乐 context 被挂起，立即恢复音乐
+        if (isMusicOn) {
+          // 稍等一小会儿确保 context 恢复，再检查并重新启动音乐（如果暂停了）
+          setTimeout(() => {
+            resumeAudioContext();
+            // 如果之前音乐在播放但被中断，重新恢复增益并继续（不重新 startMusicLoop 避免重叠）
+            resumeMusicGain();
+            // 若定时器丢失（被浏览器清掉），补一个
+            if (isMusicOn && !songTimer) {
+              startMusicLoop();
+            }
+          }, 100);
+        }
 
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 256;
@@ -453,6 +474,7 @@
 
         source.connect(filter);
         filter.connect(analyser);
+        // 注意：这里没有连接 destination，所以不会产生回授，也不会影响音乐输出
 
         micStarted = true;
         canBlow = true;
@@ -460,7 +482,6 @@
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
-        // 重置吹气帧计数
         blowFrames = 0;
 
         function detectBlow() {
@@ -479,10 +500,10 @@
           }
           const lowAverage = energySum / lowBins;
 
-          // 提高阈值到 50，且需要连续 6 帧（约 0.1 秒）才触发，避免启动瞬间误判
-          if (lowAverage > 50) {
+          // 提高阈值到 55，且需要连续 8 帧（约 0.13 秒）才触发
+          if (lowAverage > 55) {
             blowFrames++;
-            if (blowFrames >= 6) {
+            if (blowFrames >= 8) {
               extinguish();
               blowFrames = 0;
             }
@@ -504,49 +525,49 @@
     async function handleMainBtnClick(e) {
       e.stopPropagation();
 
-      // 阶段 1：点击白色 Ready to Blow
       if (appState === 'READY') {
-        // 如果音乐是关闭的，打开音乐；如果已经开启，保持播放不打断
+        // 如果音乐关闭，则打开；如果已开，保持播放不打断
         if (!isMusicOn) {
           isMusicOn = true;
           updateMusicButtonUI();
+          ensureAudioContext();
+          resumeAudioContext();
+          resumeMusicGain();
           startMusicLoop();
+        } else {
+          // 确保音乐在运行
+          resumeAudioContext();
+          resumeMusicGain();
+          if (!songTimer) startMusicLoop();
         }
-        // 如果音乐已开，不做任何操作，继续播放
 
         mainBtn.innerText = "Connecting...";
-        // 点击后立即进入 BLOWING 状态并设置 canBlow = false，等待麦克风就绪后再启用
         appState = 'BLOWING';
         mainBtn.className = "btn-blow";
         mainBtn.innerText = "Tap or Blow";
         statusHint.innerText = "Blow onto mic or tap directly to extinguish!";
-        canBlow = false; // 先禁用，防止瞬间误触发
+        canBlow = false;
 
         const ok = await requestAndStartMic();
 
-        // 麦克风就绪后，给予短暂延迟再启用吹气检测
         if (ok) {
-          // 延迟 800ms 再允许吹气，避免启动噪音
           setTimeout(() => {
             if (appState === 'BLOWING' && isLit) {
               canBlow = true;
               blowFrames = 0;
             }
-          }, 800);
+          }, 900);
         } else {
-          // 没有麦克风权限，直接允许点击吹灭
           canBlow = true;
         }
         return;
       }
 
-      // 阶段 2：粉色状态下，直接点击也可吹灭
       if (appState === 'BLOWING' && isLit) {
         extinguish();
         return;
       }
 
-      // 阶段 3：吹灭后点击 Relight Again
       if (appState === 'EXTINGUISHED') {
         relight();
         return;
@@ -569,10 +590,12 @@
       actionContainer.classList.add('hidden');
       createBurst();
 
-      // 吹灭时若音乐关闭则自动打开（保持原有逻辑，也可以保留；但通常音乐已经开启）
       if (!isMusicOn) {
         isMusicOn = true;
         updateMusicButtonUI();
+        ensureAudioContext();
+        resumeAudioContext();
+        resumeMusicGain();
         startMusicLoop();
       }
 
@@ -600,7 +623,6 @@
       mainBtn.innerText = "Tap or Blow";
       statusHint.innerText = "Blow onto mic or tap directly to extinguish!";
 
-      // 给予 2 秒安全冷却期，杜绝秒灭
       setTimeout(() => {
         if (isLit) {
           canBlow = true;
@@ -812,7 +834,6 @@
         };
       }
 
-      // 1. 蛋糕主体粒子
       for (let i = 0; i < cakeParticles.length; i++) {
         const p = cakeParticles[i];
         const proj = project(p.x, p.y, p.z);
@@ -826,7 +847,6 @@
         });
       }
 
-      // 2. 蜡烛火焰粒子
       if (isLit) {
         const t = Date.now() * 0.0025;
         for (let i = 0; i < flameParticles.length; i++) {
@@ -848,7 +868,6 @@
         }
       }
 
-      // 3. 漫天三维星尘粒子
       for (let i = 0; i < burstParticles.length; i++) {
         const b = burstParticles[i];
         b.life++;
