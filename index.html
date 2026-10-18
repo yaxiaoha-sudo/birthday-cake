@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Happy Birthday!</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at center, #1b0a24 0%, #06020c 100%);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #fff;
+      user-select: none;
+      -webkit-user-select: none;
+      position: relative;
+      touch-action: none;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      cursor: grab;
+    }
+
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    /* UI 悬浮层 */
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 38px 20px 30px;
+    }
+
+    .header {
+      text-align: center;
+    }
+
+    /* 标题渐变：#ff85ad 到 #ff6ab0 */
+    .header h1 {
+      font-size: 2.7rem;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      background: linear-gradient(135deg, #ffffff 0%, #ff85ad 50%, #ff6ab0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 16px rgba(255, 133, 173, 0.75)) drop-shadow(0 0 32px rgba(255, 106, 176, 0.45));
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 1.05rem;
+      color: #fce7f3;
+      opacity: 0.88;
+      letter-spacing: 0.5px;
+      font-weight: 400;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    }
+
+    /* 初始吹气交互组件容器 */
+    .initial-action {
+      position: absolute;
+      top: 56%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+    }
+
+    /* 初始按钮：#ff7eaf 到 #ff699a 渐变 */
+    .blow-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 13px 38px;
+      border-radius: 40px;
+      border: none;
+      color: #ffffff;
+      font-size: 1.25rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(135deg, #ff7eaf 0%, #ff699a 100%);
+      box-shadow: 0 8px 30px rgba(255, 105, 154, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      touch-action: manipulation;
+      letter-spacing: 0.6px;
+    }
+
+    .blow-btn:hover {
+      transform: scale(1.04);
+      box-shadow: 0 10px 35px rgba(255, 105, 154, 0.75);
+    }
+
+    .blow-btn:active {
+      transform: scale(0.96);
+    }
+
+    .blow-btn.listening {
+      background: linear-gradient(135deg, #ff8eb9 0%, #ff699a 100%);
+      box-shadow: 0 8px 32px rgba(255, 105, 154, 0.75);
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+
+    .sub-tip {
+      font-size: 0.85rem;
+      color: #fbcfe8;
+      opacity: 0.85;
+      text-align: center;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    /* 吹灭后全新登场的 Relight 容器（完全去除粉色光晕） */
+    .relight-action {
+      position: absolute;
+      top: 56%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.26s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+
+    /* 白色半透明、纯净描边、无任何粉色光晕的 Relight Again 按钮 */
+    .relight-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 13px 38px;
+      border-radius: 40px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      color: #ffffff;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      /* 纯净白光投影，绝无粉色残余 */
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 255, 255, 0.15), inset 0 0 10px rgba(255, 255, 255, 0.12);
+      transition: all 0.25s ease;
+      touch-action: manipulation;
+    }
+
+    .relight-btn:hover {
+      background: rgba(255, 255, 255, 0.26);
+      border-color: #ffffff;
+      transform: scale(1.04);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.25);
+    }
+
+    .relight-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* 显隐状态控制类 */
+    .hidden {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translate(-50%, -48%) scale(0.94) !important;
+    }
+
+    .visible {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: translate(-50%, -50%) scale(1) !important;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="stage"></canvas>
+
+  <div class="ui-layer">
+    <div class="header">
+      <h1 id="mainTitle">Happy Birthday!</h1>
+      <p id="subTitle">Make a wish and blow into the mic!</p>
+    </div>
+
+    <!-- 1. 初始吹气交互层 -->
+    <div class="initial-action" id="initialAction">
+      <button class="blow-btn" id="blowBtn">Tap or Blow</button>
+      <span class="sub-tip" id="statusHint">Listening for your breath or tap directly</span>
+    </div>
+
+    <!-- 2. 完全独立的 Relight Again 按钮（初始彻底隐藏） -->
+    <div class="relight-action" id="relightAction">
+      <button class="relight-btn" id="relightBtn">Relight Again</button>
+      <span class="sub-tip" style="color: #e2e8f0; opacity: 0.85;">Tap above to relight the candles</span>
+    </div>
+
+    <div></div>
+  </div>
+
+  <script>
+    // --- 1. 画布与视口适配 ---
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+
+    let width = 0, height = 0;
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- 2. 状态定义 ---
+    let isLit = true;
+    let micStarted = false;
+    let audioCtx = null;
+    let analyser = null;
+    let micStream = null;
+    let blowFrames = 0;
+    let canBlow = true;
+
+    const mainTitle = document.getElementById('mainTitle');
+    const subTitle = document.getElementById('subTitle');
+    const initialAction = document.getElementById('initialAction');
+    const relightAction = document.getElementById('relightAction');
+    const blowBtn = document.getElementById('blowBtn');
+    const relightBtn = document.getElementById('relightBtn');
+    const statusHint = document.getElementById('statusHint');
+
+    // --- 3. 手势/鼠标滑动 3D 旋转控制变量 ---
+    let rotationY = 0;
+    let rotationX = 0;
+    let isDragging = false;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let dragVelocityX = 0;
+    let dragVelocityY = 0;
+
+    // --- 4. 粒子系统设置（纯白与浅香槟色，上密下疏）---
+    const cakeParticles = [];
+    const flameParticles = [];
+    const burstParticles = [];
+
+    const cakeColors = [
+      'rgba(255, 255, 255, ',
+      'rgba(255, 253, 245, ',
+      'rgba(254, 243, 199, ',
+      'rgba(253, 230, 138, ',
+      'rgba(250, 245, 255, '
+    ];
+
+    function addTier(radius, yBase, h, count, isTopDense) {
+      for (let i = 0; i < count; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const isWall = Math.random() < 0.6;
+        let r, y;
+
+        if (isWall) {
+          r = radius + (Math.random() - 0.5) * 8;
+          y = yBase + Math.random() * h;
+        } else {
+          r = Math.sqrt(Math.random()) * radius;
+          y = yBase + h + (Math.random() - 0.5) * 3;
+        }
+
+        const size = Math.random() * 0.45 + 0.4;
+        const color = cakeColors[Math.floor(Math.random() * cakeColors.length)];
+        const alpha = isTopDense ? (Math.random() * 0.35 + 0.65) : (Math.random() * 0.3 + 0.4);
+
+        cakeParticles.push({
+          x: Math.cos(theta) * r,
+          y: y,
+          z: Math.sin(theta) * r,
+          color: color,
+          size: size,
+          alpha: alpha
+        });
+      }
+    }
+
+    addTier(165, -95, 68, 5500, false);
+    addTier(118, -25, 62, 5800, false);
+    addTier(72, 38, 52, 6000, true);
+
+    const candleXs = [-26, 0, 26];
+    candleXs.forEach(cx => {
+      for (let i = 0; i < 400; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const r = Math.random() * 3.2 + 0.8;
+        const y = 90 + Math.random() * 46;
+        cakeParticles.push({
+          x: cx + Math.cos(theta) * r,
+          y: y,
+          z: Math.sin(theta) * r,
+          color: 'rgba(255, 255, 255, ',
+          size: Math.random() * 0.4 + 0.45,
+          alpha: 0.95
+        });
+      }
+    });
+
+    candleXs.forEach(cx => {
+      for (let i = 0; i < 160; i++) {
+        const u = Math.random();
+        const theta = Math.random() * Math.PI * 2;
+        const r = (1 - u) * 6.5 * Math.random();
+        flameParticles.push({
+          cx: cx,
+          theta: theta,
+          r: r,
+          u: u,
+          speed: Math.random() * 6 + 10,
+          color: u > 0.65 ? 'rgba(255, 90, 30, ' : 'rgba(255, 218, 10, '
+        });
+      }
+    });
+
+    // --- 5. 吹灭时四周强力迸射星河 ---
+    function createBurst() {
+      burstParticles.length = 0;
+      const burstColors = [
+        'rgba(255, 255, 255, ',
+        'rgba(255, 250, 235, ',
+        'rgba(254, 240, 190, ',
+        'rgba(253, 224, 71, ',
+        'rgba(255, 133, 173, '
+      ];
+
+      for (let i = 0; i < 2600; i++) {
+        const cx = candleXs[i % 3];
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        const speed = Math.random() * 11.5 + 2.8;
+
+        burstParticles.push({
+          x: cx + (Math.random() - 0.5) * 8,
+          y: 138 + (Math.random() - 0.5) * 8,
+          z: (Math.random() - 0.5) * 8,
+          vx: Math.sin(phi) * Math.cos(theta) * speed,
+          vy: Math.cos(phi) * speed + 0.5,
+          vz: Math.sin(phi) * Math.sin(theta) * speed * 1.3,
+          size: Math.random() * 0.35 + 0.28,
+          color: burstColors[Math.floor(Math.random() * burstColors.length)],
+          alpha: 1.0,
+          drag: 0.974,
+          life: 0,
+          maxLife: Math.random() * 220 + 150
+        });
+      }
+    }
+
+    // --- 6. 吹熄与全新按钮出现逻辑 ---
+    function extinguish() {
+      if (!isLit || !canBlow) return;
+      isLit = false;
+      canBlow = false;
+      blowFrames = 0;
+
+      mainTitle.innerText = "Wish Granted!";
+      subTitle.innerText = "May all your dreams sparkle into reality!";
+      
+      // 1. 彻底淡出并隐藏前一个粉色按钮
+      initialAction.classList.add('hidden');
+
+      createBurst();
+
+      // 2. 停顿 1.7 秒后，全新、独立的白色半透明 Relight Again 按钮快速浮现（无粉色残留）
+      setTimeout(() => {
+        if (!isLit) {
+          relightAction.classList.add('visible');
+        }
+      }, 1700);
+    }
+
+    function relight() {
+      isLit = true;
+      canBlow = false;
+      blowFrames = 0;
+      burstParticles.length = 0;
+
+      mainTitle.innerText = "Happy Birthday!";
+      subTitle.innerText = "Make a wish and blow into the mic!";
+
+      // 隐藏 Relight 按钮，唤回初始按钮
+      relightAction.classList.remove('visible');
+      initialAction.classList.remove('hidden');
+
+      if (micStarted) {
+        blowBtn.classList.add('listening');
+      }
+
+      // 1.2 秒冷却保护
+      setTimeout(() => {
+        if (isLit) {
+          canBlow = true;
+          blowFrames = 0;
+        }
+      }, 1200);
+    }
+
+    // --- 7. 麦克风拾音与气流分析 ---
+    async function initMicrophone() {
+      if (micStarted) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
+
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.3;
+
+        const source = audioCtx.createMediaStreamSource(micStream);
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 350;
+
+        source.connect(filter);
+        filter.connect(analyser);
+
+        micStarted = true;
+        if (isLit) {
+          blowBtn.classList.add('listening');
+        }
+        statusHint.innerText = "Mic active: Blow steadily onto your microphone!";
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function detectBlow() {
+          if (!isLit || !canBlow) {
+            blowFrames = 0;
+            requestAnimationFrame(detectBlow);
+            return;
+          }
+
+          analyser.getByteFrequencyData(dataArray);
+
+          let energySum = 0;
+          const lowBins = 10;
+          for (let i = 0; i < lowBins; i++) {
+            energySum += dataArray[i];
+          }
+          const lowAverage = energySum / lowBins;
+
+          if (lowAverage > 34) {
+            blowFrames++;
+            if (blowFrames >= 3) {
+              extinguish();
+              blowFrames = 0;
+            }
+          } else {
+            blowFrames = Math.max(0, blowFrames - 1);
+          }
+
+          requestAnimationFrame(detectBlow);
+        }
+        detectBlow();
+
+      } catch (err) {
+        console.warn('Microphone error:', err);
+        statusHint.innerText = "Mic unavailable. You can tap the button directly!";
+      }
+    }
+
+    // 点击事件分别绑定各自独立元素
+    blowBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (isLit) {
+        if (!micStarted) await initMicrophone();
+        extinguish();
+      }
+    });
+
+    relightBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      relight();
+    });
+
+    window.addEventListener('click', () => {
+      if (!micStarted) initMicrophone();
+    }, { once: true });
+
+    // --- 8. 手势 / 鼠标滑动旋转交互 ---
+    function onPointerDown(e) {
+      if (e.target.closest('#initialAction') || e.target.closest('#relightAction')) return;
+      isDragging = true;
+      lastPointerX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      lastPointerY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      dragVelocityX = 0;
+      dragVelocityY = 0;
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      const currentX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      const currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+      const deltaX = currentX - lastPointerX;
+      const deltaY = currentY - lastPointerY;
+
+      dragVelocityX = deltaX * 0.006;
+      dragVelocityY = deltaY * 0.003;
+
+      rotationY += dragVelocityX;
+      rotationX += dragVelocityY;
+      rotationX = Math.max(-0.25, Math.min(0.25, rotationX));
+
+      lastPointerX = currentX;
+      lastPointerY = currentY;
+    }
+
+    function onPointerUp() {
+      isDragging = false;
+    }
+
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    window.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp, { passive: true });
+
+    // --- 9. 3D 渲染循环 ---
+    const fov = 420;
+
+    function render() {
+      requestAnimationFrame(render);
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (!isDragging) {
+        rotationY += 0.0028 + dragVelocityX;
+        dragVelocityX *= 0.94;
+        dragVelocityY *= 0.94;
+        rotationX += dragVelocityY;
+        rotationX *= 0.98;
+      }
+
+      const floatY = Math.sin(Date.now() * 0.0012) * 6;
+
+      const cosRY = Math.cos(rotationY);
+      const sinRY = Math.sin(rotationY);
+      const cosRX = Math.cos(rotationX);
+      const sinRX = Math.sin(rotationX);
+
+      const renderQueue = [];
+      const centerX = width / 2;
+      const centerY = height * 0.52;
+
+      function project(x, y, z) {
+        const x1 = x * cosRY - z * sinRY;
+        const z1 = x * sinRY + z * cosRY;
+        const y2 = y * cosRX - z1 * sinRX;
+        const z2 = y * sinRX + z1 * cosRX + 420;
+
+        const scale = fov / Math.max(30, z2);
+        return {
+          x2d: centerX + x1 * scale,
+          y2d: centerY - (y2 + floatY) * scale,
+          z: z2,
+          scale: scale
+        };
+      }
+
+      // 1. 蛋糕主体粒子
+      for (let i = 0; i < cakeParticles.length; i++) {
+        const p = cakeParticles[i];
+        const proj = project(p.x, p.y, p.z);
+        renderQueue.push({
+          x: proj.x2d,
+          y: proj.y2d,
+          z: proj.z,
+          size: p.size * proj.scale,
+          color: p.color,
+          alpha: p.alpha
+        });
+      }
+
+      // 2. 蜡烛火焰粒子
+      if (isLit) {
+        const t = Date.now() * 0.0025;
+        for (let i = 0; i < flameParticles.length; i++) {
+          const f = flameParticles[i];
+          const wave = Math.sin(t * f.speed + f.u * 8) * 2.2;
+          const fx = f.cx + Math.cos(f.theta) * (f.r + wave);
+          const fz = Math.sin(f.theta) * (f.r + wave);
+          const fy = 132 + f.u * 26;
+
+          const proj = project(fx, fy, fz);
+          renderQueue.push({
+            x: proj.x2d,
+            y: proj.y2d,
+            z: proj.z - 10,
+            size: 1.5 * proj.scale,
+            color: f.color,
+            alpha: 0.95
+          });
+        }
+      }
+
+      // 3. 漫天三维星尘粒子
+      for (let i = 0; i < burstParticles.length; i++) {
+        const b = burstParticles[i];
+        b.life++;
+        
+        b.vx *= b.drag;
+        b.vy *= b.drag;
+        b.vz *= b.drag;
+
+        b.x += b.vx;
+        b.y += b.vy;
+        b.z += b.vz;
+
+        b.y += Math.sin(Date.now() * 0.001 + i) * 0.03;
+        b.x += Math.cos(Date.now() * 0.001 + i) * 0.03;
+
+        b.alpha = Math.max(0, 1.0 - (b.life / b.maxLife));
+
+        const proj = project(b.x, b.y, b.z);
+
+        if (b.alpha > 0.005) {
+          renderQueue.push({
+            x: proj.x2d,
+            y: proj.y2d,
+            z: proj.z,
+            size: b.size * proj.scale,
+            color: b.color,
+            alpha: b.alpha
+          });
+        }
+      }
+
+      renderQueue.sort((a, b) => b.z - a.z);
+
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < renderQueue.length; i++) {
+        const item = renderQueue[i];
+        if (item.size <= 0) continue;
+        ctx.fillStyle = item.color + item.alpha + ')';
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, Math.max(0.35, item.size), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    render();
+  </script>
+</body>
+</html>
