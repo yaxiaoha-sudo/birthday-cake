@@ -272,6 +272,7 @@
     let blowFrames = 0;
     let canBlow = false;
 
+    // 默认进入页面时：音乐关闭
     let isMusicOn = false;
     let songTimer = null;
     let musicGainNode = null;
@@ -380,7 +381,12 @@
     }
 
     function stopMusic() {
-      if (songTimer) clearTimeout(songTimer);
+      isMusicOn = false;
+      updateMusicButtonUI();
+      if (songTimer) {
+        clearTimeout(songTimer);
+        songTimer = null;
+      }
       if (musicGainNode && audioCtx) {
         try {
           const now = audioCtx.currentTime;
@@ -415,14 +421,13 @@
       ensureAudioContext();
       resumeAudioContext();
 
-      isMusicOn = !isMusicOn;
-      updateMusicButtonUI();
-
       if (isMusicOn) {
+        stopMusic();
+      } else {
+        isMusicOn = true;
+        updateMusicButtonUI();
         resumeMusicGain();
         startMusicLoop();
-      } else {
-        stopMusic();
       }
     });
 
@@ -441,16 +446,6 @@
         });
 
         resumeAudioContext();
-
-        if (isMusicOn) {
-          setTimeout(() => {
-            resumeAudioContext();
-            resumeMusicGain();
-            if (isMusicOn && !songTimer) {
-              startMusicLoop();
-            }
-          }, 100);
-        }
 
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 256;
@@ -512,17 +507,9 @@
       e.stopPropagation();
 
       if (appState === 'READY') {
-        if (!isMusicOn) {
-          isMusicOn = true;
-          updateMusicButtonUI();
-          ensureAudioContext();
-          resumeAudioContext();
-          resumeMusicGain();
-          startMusicLoop();
-        } else {
-          resumeAudioContext();
-          resumeMusicGain();
-          if (!songTimer) startMusicLoop();
+        // 关键改动：准备吹蜡烛时，若音乐开着就关闭音乐，关着就保持关闭
+        if (isMusicOn) {
+          stopMusic();
         }
 
         mainBtn.innerText = "Connecting...";
@@ -573,15 +560,6 @@
 
       actionContainer.classList.add('hidden');
       createBurst();
-
-      if (!isMusicOn) {
-        isMusicOn = true;
-        updateMusicButtonUI();
-        ensureAudioContext();
-        resumeAudioContext();
-        resumeMusicGain();
-        startMusicLoop();
-      }
 
       setTimeout(() => {
         if (!isLit) {
@@ -745,28 +723,28 @@
       }
     });
 
-    // --- 9. 极高清晰度与精准垂直位置的文字点阵采样 ---
+    // --- 9. 高密度点阵采样（更靠近蜡烛，字迹高度致密工整） ---
     function sampleTextTargets() {
       const offCanvas = document.createElement('canvas');
       const offCtx = offCanvas.getContext('2d');
-      // 适度画布尺寸，保证字体比例清晰饱满
-      offCanvas.width = 620;
-      offCanvas.height = 140;
+      offCanvas.width = 640;
+      offCanvas.height = 130;
 
-      // 使用 900 极粗字体，确保字母笔画实心不零碎
+      // 使用加粗紧凑字形
       offCtx.fillStyle = '#ffffff';
-      offCtx.font = '900 32px -apple-system, BlinkMacSystemFont, "Arial Black", Roboto, sans-serif';
+      offCtx.font = '900 30px -apple-system, BlinkMacSystemFont, "Arial Black", Impact, sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
 
-      // 两行居中紧凑排列
-      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 42);
-      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 98);
+      // 两行垂直贴合紧凑
+      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 38);
+      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 88);
 
       const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
       const targets = [];
-      // 关键优化：采样步长减小到 2.2 像素，点阵密度提升近 3 倍，轮廓非常扎实清晰
-      const step = 2.2; 
+      
+      // 核心调整：采样步长收紧至 1.4px，粒子极度密集，笔画完整连贯
+      const step = 1.4;
 
       for (let y = 0; y < offCanvas.height; y += step) {
         for (let x = 0; x < offCanvas.width; x += step) {
@@ -774,12 +752,11 @@
           const py = Math.floor(y);
           const index = (py * offCanvas.width + px) * 4;
 
-          if (imgData[index + 3] > 140) {
-            // 空间 Y 目标降到 168（蜡烛顶部在 138 左右，稍微上浮 30 单位，正好紧挨蜡烛且在标题下方）
-            // 比例缩放系数控制在 0.38，确保不论在手机还是电脑宽屏中都不会溢出或过大
-            const tx = (px - offCanvas.width / 2) * 0.38;
-            const ty = 168 - (py - offCanvas.height / 2) * 0.38;
-            const tz = (Math.random() - 0.5) * 6; // 轻微景深厚度
+          if (imgData[index + 3] > 120) {
+            // 核心调整：中心 Y 坐标设在 150（蜡烛顶在 138，紧挨蜡烛顶端上方微距空隙）
+            const tx = (px - offCanvas.width / 2) * 0.36;
+            const ty = 150 - (py - offCanvas.height / 2) * 0.36;
+            const tz = (Math.random() - 0.5) * 4;
             targets.push({ x: tx, y: ty, z: tz });
           }
         }
@@ -802,7 +779,7 @@
       ];
 
       // 1. 周围发散爆炸烟花粒子
-      for (let i = 0; i < 1800; i++) {
+      for (let i = 0; i < 1600; i++) {
         const cx = candleXs[i % 3];
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
@@ -824,13 +801,13 @@
         });
       }
 
-      // 2. 刹那爆发并精准紧凑汇聚为实心文字的粒子
+      // 2. 密集聚合为实心文字的高光星尘
       const textParticleColors = [
         'rgba(255, 255, 255, ',
-        'rgba(255, 245, 235, ',
-        'rgba(255, 225, 238, ',
-        'rgba(254, 240, 170, ',
-        'rgba(255, 175, 195, '
+        'rgba(255, 248, 240, ',
+        'rgba(255, 230, 242, ',
+        'rgba(254, 245, 185, ',
+        'rgba(255, 192, 203, '
       ];
 
       for (let i = 0; i < textTargets.length; i++) {
@@ -838,30 +815,29 @@
         const originCandleX = candleXs[i % 3];
         
         const angle = Math.random() * Math.PI * 2;
-        const spreadSpeed = Math.random() * 6 + 1.5;
+        const spreadSpeed = Math.random() * 5 + 1.2;
 
         textParticles.push({
-          x: originCandleX + (Math.random() - 0.5) * 6,
-          y: 138 + Math.random() * 4,
-          z: (Math.random() - 0.5) * 6,
+          x: originCandleX + (Math.random() - 0.5) * 5,
+          y: 138 + Math.random() * 3,
+          z: (Math.random() - 0.5) * 5,
           vx: Math.cos(angle) * spreadSpeed,
-          vy: Math.random() * 7 + 3,
+          vy: Math.random() * 6 + 2,
           vz: Math.sin(angle) * spreadSpeed,
           tx: target.x,
           ty: target.y,
           tz: target.z,
-          // 增微粒子实体半径，让连字更加扎实
-          size: Math.random() * 0.25 + 0.52,
+          size: Math.random() * 0.2 + 0.55,
           color: textParticleColors[Math.floor(Math.random() * textParticleColors.length)],
           alpha: 0,
-          convergeDelay: Math.random() * 12 + 8, // 快速开启聚合吸引
+          convergeDelay: Math.random() * 10 + 6,
           age: 0,
           seed: Math.random() * 100
         });
       }
     }
 
-    // --- 10. 渲染主循环（适配不同分辨率与端）---
+    // --- 10. 渲染主循环 ---
     const fov = 420;
 
     function render() {
@@ -981,19 +957,19 @@
           tp.x += tp.vx;
           tp.y += tp.vy;
           tp.z += tp.vz;
-          tp.vx *= 0.92;
-          tp.vy *= 0.92;
-          tp.vz *= 0.92;
-          tp.alpha = Math.min(1.0, tp.age / 10);
+          tp.vx *= 0.90;
+          tp.vy *= 0.90;
+          tp.vz *= 0.90;
+          tp.alpha = Math.min(1.0, tp.age / 8);
         } else {
-          // 更紧密的吸引锁定，微量阻尼防止发散
-          const ease = 0.11;
+          // 加大吸附力度至 0.14，粒子快速归位，锁定字母笔画
+          const ease = 0.14;
           tp.x += (tp.tx - tp.x) * ease;
           tp.y += (tp.ty - tp.y) * ease;
           tp.z += (tp.tz - tp.z) * ease;
 
-          const shimmer = Math.sin(nowTime * 2.8 + tp.seed) * 0.12;
-          tp.alpha = Math.min(1.0, 0.92 + shimmer);
+          const shimmer = Math.sin(nowTime * 3.0 + tp.seed) * 0.1;
+          tp.alpha = Math.min(1.0, 0.95 + shimmer);
         }
 
         const proj = project(tp.x, tp.y, tp.z);
@@ -1002,8 +978,7 @@
             x: proj.x2d,
             y: proj.y2d,
             z: proj.z - 5,
-            // 到达字形骨架后尺寸饱满加实
-            size: tp.size * proj.scale * (tp.age > tp.convergeDelay ? 1.15 : 0.8),
+            size: tp.size * proj.scale * (tp.age > tp.convergeDelay ? 1.2 : 0.8),
             color: tp.color,
             alpha: tp.alpha
           });
