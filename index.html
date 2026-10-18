@@ -256,18 +256,18 @@
   </div>
 
   <script>
-    // --- 1. 彻底解决国内与移动端网络限制的纯净高保真音乐系统 ---
+    // --- 1. 纯原生 Web Audio 纯净八音盒音响系统（彻底不加载外部 MP3，100% 稳定）---
     let audioCtx = null;
     let masterGain = null;
     let isMusicOn = false;
     let musicTimer = null;
 
-    function initAudioContext() {
+    function initAudio() {
       if (!audioCtx) {
-        const AudioClass = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioClass();
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtxClass();
         masterGain = audioCtx.createGain();
-        masterGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
         masterGain.connect(audioCtx.destination);
       }
       if (audioCtx.state === 'suspended') {
@@ -275,19 +275,18 @@
       }
     }
 
-    // 纯正清脆的水晶生日歌八音盒引擎（永不依赖外部 MP3，100% 秒开秒播）
-    function playMelodyNote(freq, time, dur) {
+    // 纯正清亮的水晶音乐盒发声单元
+    function playBoxNote(freq, time, dur) {
       if (!audioCtx || !isMusicOn) return;
       try {
         const osc = audioCtx.createOscillator();
         const noteGain = audioCtx.createGain();
 
-        // 正弦波 + 三角泛音模拟清澈水晶质感
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, time);
 
         noteGain.gain.setValueAtTime(0.0001, time);
-        noteGain.gain.linearRampToValueAtTime(0.26, time + 0.02);
+        noteGain.gain.linearRampToValueAtTime(0.32, time + 0.02);
         noteGain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
 
         osc.connect(noteGain);
@@ -300,32 +299,32 @@
       }
     }
 
-    // 经典的欢快明亮《Happy Birthday to You》正宗曲谱
-    const bdaySong = [
+    // 欢快生日歌旋律乐谱
+    const bdayMelody = [
       { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.7 }, { f: 261.63, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 329.63, d: 1.2 },
       { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.7 }, { f: 261.63, d: 0.7 }, { f: 392.00, d: 0.7 }, { f: 349.23, d: 1.2 },
       { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 523.25, d: 0.7 }, { f: 440.00, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 329.63, d: 0.7 }, { f: 293.66, d: 1.0 },
       { f: 466.16, d: 0.35 }, { f: 466.16, d: 0.35 }, { f: 440.00, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 392.00, d: 0.7 }, { f: 349.23, d: 1.5 }
     ];
 
-    function startMusic() {
+    function loopMusic() {
       if (!isMusicOn) return;
-      initAudioContext();
+      initAudio();
       if (musicTimer) clearTimeout(musicTimer);
 
-      masterGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+      masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
 
       let cur = audioCtx.currentTime + 0.05;
       let total = 0;
-      bdaySong.forEach(n => {
-        playMelodyNote(n.f, cur, n.d * 1.15);
+      bdayMelody.forEach(n => {
+        playBoxNote(n.f, cur, n.d * 1.15);
         const step = n.d * 0.94;
         cur += step;
         total += step;
       });
 
       musicTimer = setTimeout(() => {
-        if (isMusicOn) startMusic();
+        if (isMusicOn) loopMusic();
       }, (total + 0.3) * 1000);
     }
 
@@ -336,7 +335,8 @@
       }
     }
 
-    function updateMusicButtonUI() {
+    const musicToggle = document.getElementById('musicToggle');
+    function updateMusicUI() {
       if (isMusicOn) {
         musicToggle.innerText = "Music: ON";
         musicToggle.classList.add('active');
@@ -348,11 +348,11 @@
 
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      initAudioContext();
+      initAudio();
       isMusicOn = !isMusicOn;
-      updateMusicButtonUI();
+      updateMusicUI();
       if (isMusicOn) {
-        startMusic();
+        loopMusic();
       } else {
         stopMusic();
       }
@@ -366,19 +366,18 @@
     function resize() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
-      generateTextCoordinates(); // 屏幕旋转或尺寸变化时重新计算文字粒子
     }
     resize();
     window.addEventListener('resize', resize);
 
-    // --- 3. 状态机管理与防秒灭安全保护 ---
+    // --- 3. 状态管理 ---
     let appState = 'READY'; // READY -> BLOWING -> EXTINGUISHED
     let isLit = true;
     let micStarted = false;
     let analyser = null;
     let micStream = null;
     let blowFrames = 0;
-    let canBlow = false; // 吹气安全锁
+    let canBlow = false;
 
     const mainTitle = document.getElementById('mainTitle');
     const subTitle = document.getElementById('subTitle');
@@ -386,63 +385,82 @@
     const mainBtn = document.getElementById('mainBtn');
     const statusHint = document.getElementById('statusHint');
 
-    // --- 4. 蜡烛与标题之间清晰可见的文字星尘聚合系统 ---
+    // --- 4. 彻底安全的矢量级文字星尘聚合系统（绝不崩溃）---
+    // "Stay Happy Stay bright" / "Stay you My girl"
     const textParticles = [];
     let showTextParticles = false;
     let textMorphProgress = 0;
 
-    function generateTextCoordinates() {
-      const offCanvas = document.createElement('canvas');
-      offCanvas.width = 700;
-      offCanvas.height = 240;
-      const offCtx = offCanvas.getContext('2d');
+    function buildVectorTextParticles() {
+      textParticles.length = 0;
+      
+      // 使用精确的二维点阵字模，避免任何 Canvas 跨域安全报错
+      // 5x7 点阵字体数据映射
+      const font = {
+        'A': [0x1c,0x22,0x22,0x3e,0x22,0x22,0x22],
+        'B': [0x3c,0x22,0x22,0x3c,0x22,0x22,0x3c],
+        'C': [0x1e,0x20,0x20,0x20,0x20,0x20,0x1e],
+        'D': [0x3c,0x22,0x22,0x22,0x22,0x22,0x3c],
+        'E': [0x3e,0x20,0x20,0x3c,0x20,0x20,0x3e],
+        'G': [0x1e,0x20,0x20,0x2e,0x22,0x22,0x1e],
+        'H': [0x22,0x22,0x22,0x3e,0x22,0x22,0x22],
+        'I': [0x1c,0x08,0x08,0x08,0x08,0x08,0x1c],
+        'M': [0x22,0x36,0x2a,0x22,0x22,0x22,0x22],
+        'P': [0x3c,0x22,0x22,0x3c,0x20,0x20,0x20],
+        'R': [0x3c,0x22,0x22,0x3c,0x28,0x24,0x22],
+        'S': [0x1e,0x20,0x20,0x1c,0x02,0x02,0x3c],
+        'T': [0x3e,0x08,0x08,0x08,0x08,0x08,0x08],
+        'U': [0x22,0x22,0x22,0x22,0x22,0x22,0x1c],
+        'Y': [0x22,0x22,0x14,0x08,0x08,0x08,0x08],
+        ' ': [0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+      };
 
-      offCtx.fillStyle = '#ffffff';
-      // 高清晰粗体英文
-      offCtx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      offCtx.textAlign = 'center';
-      offCtx.textBaseline = 'middle';
+      const line1 = "STAY HAPPY STAY BRIGHT";
+      const line2 = "STAY YOU MY GIRL";
 
-      // 两行居中文字
-      offCtx.fillText('Stay Happy Stay bright', 350, 80);
-      offCtx.fillText('Stay you My girl', 350, 140);
+      function renderLine(str, yCenter, scale) {
+        const totalW = str.length * 6 * scale;
+        const startX = -totalW / 2;
 
-      const imgData = offCtx.getImageData(0, 0, 700, 240).data;
-      const targets = [];
+        for (let i = 0; i < str.length; i++) {
+          const char = str[i].toUpperCase();
+          const grid = font[char] || font[' '];
+          const charStartX = startX + i * 6 * scale;
 
-      const step = 3; // 高密度采样
-      for (let y = 0; y < 240; y += step) {
-        for (let x = 0; x < 700; x += step) {
-          const alpha = imgData[(y * 700 + x) * 4 + 3];
-          if (alpha > 120) {
-            targets.push({
-              tx: (x - 350) * 0.46,
-              ty: (120 - y) * 0.46 + 88, // 恰好落在蜡烛火苗与标题之间的空位
-              tz: (Math.random() - 0.5) * 6
-            });
+          for (let row = 0; row < 7; row++) {
+            const bits = grid[row];
+            for (let col = 0; col < 5; col++) {
+              if ((bits >> (5 - col)) & 1) {
+                // 每个点阵生成微星尘粒子
+                const targetX = charStartX + col * scale;
+                const targetY = yCenter + (3 - row) * scale;
+                textParticles.push({
+                  x: (Math.random() - 0.5) * 100,
+                  y: 110 + (Math.random() - 0.5) * 60,
+                  z: (Math.random() - 0.5) * 80,
+                  tx: targetX,
+                  ty: targetY,
+                  tz: (Math.random() - 0.5) * 5,
+                  size: Math.random() * 0.35 + 0.45,
+                  color: Math.random() < 0.7 ? 'rgba(255, 255, 255, ' : 'rgba(255, 235, 175, '
+                });
+              }
+            }
           }
         }
       }
 
-      textParticles.length = 0;
-      targets.forEach(coord => {
-        textParticles.push({
-          x: (Math.random() - 0.5) * 120,
-          y: 120 + (Math.random() - 0.5) * 80,
-          z: (Math.random() - 0.5) * 100,
-          tx: coord.tx,
-          ty: coord.ty,
-          tz: coord.tz,
-          size: Math.random() * 0.4 + 0.48, // 适度调大，保证清晰醒目
-          color: Math.random() < 0.7 ? 'rgba(255, 255, 255, ' : 'rgba(255, 235, 175, '
-        });
-      });
+      // 两行居中生成在蜡烛与标题中间
+      renderLine(line1, 106, 1.45);
+      renderLine(line2, 86, 1.45);
     }
 
-    // --- 5. 麦克风拾音算法（带 1.8 秒防瞬间电流爆破误触锁）---
+    buildVectorTextParticles();
+
+    // --- 5. 麦克风吹气拾音（带防误触安全锁）---
     async function requestAndStartMic() {
       try {
-        initAudioContext();
+        initAudio();
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: false,
@@ -468,13 +486,13 @@
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
-        // 核心修复：开启麦克风的前 1.8 秒内强制关闭检测，吸收声卡开启脉冲！
+        // 核心修复：开启后前 1.8 秒内绝不检测，彻底吸收声卡启动脉冲
         canBlow = false;
         blowFrames = 0;
         setTimeout(() => {
           if (isLit && appState === 'BLOWING') {
             canBlow = true;
-            statusHint.innerText = "Listening: Blow steadily onto the mic!";
+            statusHint.innerText = "Blow steadily onto mic or tap directly!";
           }
         }, 1800);
 
@@ -488,13 +506,11 @@
           analyser.getByteFrequencyData(dataArray);
 
           let energySum = 0;
-          const lowBins = 8;
-          for (let i = 0; i < lowBins; i++) {
+          for (let i = 0; i < 8; i++) {
             energySum += dataArray[i];
           }
-          const lowAverage = energySum / lowBins;
+          const lowAverage = energySum / 8;
 
-          // 必须检测到持续 5 帧以上真气流才熄灭
           if (lowAverage > 36) {
             blowFrames++;
             if (blowFrames >= 5) {
@@ -515,18 +531,17 @@
       }
     }
 
-    // --- 6. 核心交互按钮事件 ---
+    // --- 6. 交互按钮处理 ---
     async function handleMainBtnClick(e) {
       e.stopPropagation();
 
-      // 点击开始吹蜡烛：音乐关着则开启，开着则平稳继续，绝不打断
+      // 点击开始吹蜡烛：若音乐关着则自动播放，若开着则继续播放绝不打断
       if (!isMusicOn) {
         isMusicOn = true;
-        updateMusicButtonUI();
-        startMusic();
+        updateMusicUI();
+        loopMusic();
       }
 
-      // 阶段 1：点击 Ready to Blow -> 启动吹气模式
       if (appState === 'READY') {
         mainBtn.innerText = "Connecting...";
         const ok = await requestAndStartMic();
@@ -538,13 +553,11 @@
         return;
       }
 
-      // 阶段 2：粉色状态下，直接点击也可吹灭
       if (appState === 'BLOWING' && isLit) {
         extinguish();
         return;
       }
 
-      // 阶段 3：吹灭后点击 Relight Again
       if (appState === 'EXTINGUISHED') {
         relight();
         return;
@@ -553,7 +566,7 @@
 
     mainBtn.addEventListener('click', handleMainBtnClick);
 
-    // --- 7. 吹灭动效与星尘文字聚合激活 ---
+    // --- 7. 吹灭与重置动效 ---
     function extinguish() {
       if (!isLit) return;
       isLit = false;
@@ -567,15 +580,15 @@
       actionContainer.classList.add('hidden');
       createBurst();
 
-      // 立即触发文字聚合粒子！
+      // 启动文字星尘聚合
       showTextParticles = true;
       textMorphProgress = 0;
 
-      // 如果音乐关着，此时也同步开启生日音乐
+      // 保证音乐持续播放
       if (!isMusicOn) {
         isMusicOn = true;
-        updateMusicButtonUI();
-        startMusic();
+        updateMusicUI();
+        loopMusic();
       }
 
       setTimeout(() => {
@@ -603,7 +616,6 @@
       mainBtn.innerText = "Tap or Blow";
       statusHint.innerText = "Blow onto mic or tap directly to extinguish!";
 
-      // 点燃后给予 2 秒安全冷却，杜绝误触秒灭
       setTimeout(() => {
         if (isLit) {
           canBlow = true;
@@ -661,7 +673,7 @@
     window.addEventListener('touchmove', onPointerMove, { passive: true });
     window.addEventListener('touchend', onPointerUp, { passive: true });
 
-    // --- 9. 3D 星尘粒子系统与火焰 ---
+    // --- 9. 蛋糕与蜡烛星尘粒子系统 ---
     const cakeParticles = [];
     const flameParticles = [];
     const burstParticles = [];
@@ -773,7 +785,7 @@
       }
     }
 
-    // --- 10. 渲染主循环 ---
+    // --- 10. 3D 渲染主循环 ---
     const fov = 420;
 
     function render() {
