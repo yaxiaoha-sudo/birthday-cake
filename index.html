@@ -283,7 +283,7 @@
     const statusHint = document.getElementById('statusHint');
     const musicToggle = document.getElementById('musicToggle');
 
-    // --- 3. 音频上下文与音乐合成（完全保留你原来的逻辑） ---
+    // --- 3. 音频上下文与音乐合成 ---
     function ensureAudioContext() {
       if (!audioCtx) {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -598,7 +598,7 @@
       canBlow = false;
       blowFrames = 0;
       burstParticles.length = 0;
-      textParticles.length = 0; // 重置文字粒子
+      textParticles.length = 0;
 
       mainTitle.innerText = "Happy Birthday!";
       subTitle.innerText = "Make a wish and blow into the mic!";
@@ -669,7 +669,7 @@
     const cakeParticles = [];
     const flameParticles = [];
     const burstParticles = [];
-    const textParticles = []; // 文字聚合粒子
+    const textParticles = [];
 
     const cakeColors = [
       'rgba(255, 255, 255, ',
@@ -745,35 +745,41 @@
       }
     });
 
-    // --- 9. 离屏采样生成两行文字 3D 骨架坐标 ---
+    // --- 9. 极高清晰度与精准垂直位置的文字点阵采样 ---
     function sampleTextTargets() {
       const offCanvas = document.createElement('canvas');
       const offCtx = offCanvas.getContext('2d');
-      offCanvas.width = 750;
-      offCanvas.height = 200;
+      // 适度画布尺寸，保证字体比例清晰饱满
+      offCanvas.width = 620;
+      offCanvas.height = 140;
 
+      // 使用 900 极粗字体，确保字母笔画实心不零碎
       offCtx.fillStyle = '#ffffff';
-      offCtx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      offCtx.font = '900 32px -apple-system, BlinkMacSystemFont, "Arial Black", Roboto, sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
 
-      // 两行居中显示
-      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 65);
-      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 135);
+      // 两行居中紧凑排列
+      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 42);
+      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 98);
 
       const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
       const targets = [];
-      const step = 4; // 采样密度步长
+      // 关键优化：采样步长减小到 2.2 像素，点阵密度提升近 3 倍，轮廓非常扎实清晰
+      const step = 2.2; 
 
       for (let y = 0; y < offCanvas.height; y += step) {
         for (let x = 0; x < offCanvas.width; x += step) {
-          const index = (y * offCanvas.width + x) * 4;
-          if (imgData[index + 3] > 128) {
-            // 将 2D 坐标映射到 3D 空间
-            // 空间 Y 范围约在 180 ~ 240 之间（刚好位于蜡烛 140 之上、顶部标题之下）
-            const tx = (x - offCanvas.width / 2) * 0.52;
-            const ty = 230 - (y - offCanvas.height / 2) * 0.52;
-            const tz = (Math.random() - 0.5) * 8; // 微微厚度
+          const px = Math.floor(x);
+          const py = Math.floor(y);
+          const index = (py * offCanvas.width + px) * 4;
+
+          if (imgData[index + 3] > 140) {
+            // 空间 Y 目标降到 168（蜡烛顶部在 138 左右，稍微上浮 30 单位，正好紧挨蜡烛且在标题下方）
+            // 比例缩放系数控制在 0.38，确保不论在手机还是电脑宽屏中都不会溢出或过大
+            const tx = (px - offCanvas.width / 2) * 0.38;
+            const ty = 168 - (py - offCanvas.height / 2) * 0.38;
+            const tz = (Math.random() - 0.5) * 6; // 轻微景深厚度
             targets.push({ x: tx, y: ty, z: tz });
           }
         }
@@ -796,11 +802,11 @@
       ];
 
       // 1. 周围发散爆炸烟花粒子
-      for (let i = 0; i < 2000; i++) {
+      for (let i = 0; i < 1800; i++) {
         const cx = candleXs[i % 3];
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const speed = Math.random() * 11.5 + 2.8;
+        const speed = Math.random() * 11 + 2.5;
 
         burstParticles.push({
           x: cx + (Math.random() - 0.5) * 8,
@@ -818,47 +824,44 @@
         });
       }
 
-      // 2. 刹那爆发并迅速向上聚集成文字的粒子
+      // 2. 刹那爆发并精准紧凑汇聚为实心文字的粒子
       const textParticleColors = [
         'rgba(255, 255, 255, ',
-        'rgba(255, 240, 245, ',
-        'rgba(255, 215, 235, ',
-        'rgba(254, 243, 199, ',
-        'rgba(255, 182, 193, '
+        'rgba(255, 245, 235, ',
+        'rgba(255, 225, 238, ',
+        'rgba(254, 240, 170, ',
+        'rgba(255, 175, 195, '
       ];
 
       for (let i = 0; i < textTargets.length; i++) {
         const target = textTargets[i];
         const originCandleX = candleXs[i % 3];
         
-        // 初始像爆炸一样从烛芯向上冲出
         const angle = Math.random() * Math.PI * 2;
-        const spreadSpeed = Math.random() * 7 + 2;
+        const spreadSpeed = Math.random() * 6 + 1.5;
 
         textParticles.push({
-          // 当前位置（从蜡烛顶部爆发）
           x: originCandleX + (Math.random() - 0.5) * 6,
           y: 138 + Math.random() * 4,
           z: (Math.random() - 0.5) * 6,
-          // 初始爆发冲力
           vx: Math.cos(angle) * spreadSpeed,
-          vy: Math.random() * 9 + 4,
+          vy: Math.random() * 7 + 3,
           vz: Math.sin(angle) * spreadSpeed,
-          // 目标文字坐标
           tx: target.x,
           ty: target.y,
           tz: target.z,
-          size: Math.random() * 0.35 + 0.42,
+          // 增微粒子实体半径，让连字更加扎实
+          size: Math.random() * 0.25 + 0.52,
           color: textParticleColors[Math.floor(Math.random() * textParticleColors.length)],
           alpha: 0,
-          convergeDelay: Math.random() * 15 + 10, // 爆炸 10~25 帧后受磁吸聚集
+          convergeDelay: Math.random() * 12 + 8, // 快速开启聚合吸引
           age: 0,
           seed: Math.random() * 100
         });
       }
     }
 
-    // --- 10. 渲染主循环 ---
+    // --- 10. 渲染主循环（适配不同分辨率与端）---
     const fov = 420;
 
     function render() {
@@ -968,31 +971,29 @@
         }
       }
 
-      // 聚合为文字的星尘粒子
+      // 汇聚文字粒子
       const nowTime = Date.now() * 0.003;
       for (let i = 0; i < textParticles.length; i++) {
         const tp = textParticles[i];
         tp.age++;
 
         if (tp.age < tp.convergeDelay) {
-          // 第一阶段：向上爆发飞散
           tp.x += tp.vx;
           tp.y += tp.vy;
           tp.z += tp.vz;
           tp.vx *= 0.92;
           tp.vy *= 0.92;
           tp.vz *= 0.92;
-          tp.alpha = Math.min(1.0, tp.age / 12);
+          tp.alpha = Math.min(1.0, tp.age / 10);
         } else {
-          // 第二阶段：弹性磁吸到文字骨架坐标
-          const ease = 0.085;
+          // 更紧密的吸引锁定，微量阻尼防止发散
+          const ease = 0.11;
           tp.x += (tp.tx - tp.x) * ease;
           tp.y += (tp.ty - tp.y) * ease;
           tp.z += (tp.tz - tp.z) * ease;
 
-          // 保持恒定微闪与呼吸浮动
-          const shimmer = Math.sin(nowTime * 2.5 + tp.seed) * 0.18;
-          tp.alpha = Math.min(1.0, 0.82 + shimmer);
+          const shimmer = Math.sin(nowTime * 2.8 + tp.seed) * 0.12;
+          tp.alpha = Math.min(1.0, 0.92 + shimmer);
         }
 
         const proj = project(tp.x, tp.y, tp.z);
@@ -1001,7 +1002,8 @@
             x: proj.x2d,
             y: proj.y2d,
             z: proj.z - 5,
-            size: tp.size * proj.scale * (tp.age > tp.convergeDelay ? 1.05 : 0.8),
+            // 到达字形骨架后尺寸饱满加实
+            size: tp.size * proj.scale * (tp.age > tp.convergeDelay ? 1.15 : 0.8),
             color: tp.color,
             alpha: tp.alpha
           });
