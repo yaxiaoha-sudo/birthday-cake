@@ -266,19 +266,15 @@
     let appState = 'READY';
     let isLit = true;
     let micStarted = false;
-    let blowFrames = 0;
-    let canBlow = false;
-    let micDetectionId = null;
-
-    // 默认进入页面时：音乐关闭
-    let isMusicOn = false;
-    let songTimer = null;
-
-    let musicAudioCtx = null;
-    let musicGainNode = null;
-    let micAudioCtx = null;
+    let audioCtx = null;
     let analyser = null;
     let micStream = null;
+    let blowFrames = 0;
+    let canBlow = false;
+
+    let isMusicOn = false;
+    let songTimer = null;
+    let musicGainNode = null;
 
     const mainTitle = document.getElementById('mainTitle');
     const subTitle = document.getElementById('subTitle');
@@ -287,26 +283,30 @@
     const statusHint = document.getElementById('statusHint');
     const musicToggle = document.getElementById('musicToggle');
 
-    // --- 3. 音乐播放逻辑 ---
-    function ensureMusicContext() {
-      if (!musicAudioCtx) {
+    // --- 3. 音频上下文与音乐合成（完全保留你原来的逻辑） ---
+    function ensureAudioContext() {
+      if (!audioCtx) {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-        musicAudioCtx = new AudioCtxClass();
-        musicGainNode = musicAudioCtx.createGain();
+        audioCtx = new AudioCtxClass();
+        musicGainNode = audioCtx.createGain();
         musicGainNode.gain.value = 0.6;
-        musicGainNode.connect(musicAudioCtx.destination);
+        musicGainNode.connect(audioCtx.destination);
       }
-      if (musicAudioCtx.state === 'suspended') {
-        musicAudioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function resumeAudioContext() {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(e => console.warn('resume failed', e));
       }
-      return musicAudioCtx;
     }
 
     function playMusicBoxBell(freq, time, duration, isLow = false) {
-      if (!musicAudioCtx || !isMusicOn || !musicGainNode) return;
+      if (!audioCtx || !isMusicOn || !musicGainNode) return;
       try {
-        const osc = musicAudioCtx.createOscillator();
-        const gain = musicAudioCtx.createGain();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
 
         osc.type = isLow ? 'sine' : 'triangle';
         osc.frequency.setValueAtTime(freq, time);
@@ -358,14 +358,12 @@
     ];
 
     function startMusicLoop() {
-      if (!isMusicOn || !musicAudioCtx) return;
+      if (!isMusicOn || !audioCtx) return;
       if (songTimer) clearTimeout(songTimer);
 
-      if (musicAudioCtx.state === 'suspended') {
-        musicAudioCtx.resume().catch(() => {});
-      }
+      resumeAudioContext();
 
-      let now = musicAudioCtx.currentTime + 0.05;
+      let now = audioCtx.currentTime + 0.08;
       let totalTime = 0;
 
       birthdayMelody.forEach(note => {
@@ -378,43 +376,27 @@
 
       songTimer = setTimeout(() => {
         if (isMusicOn) startMusicLoop();
-      }, (totalTime + 0.5) * 1000);
+      }, (totalTime + 0.6) * 1000);
     }
 
-    function resumeMusicPlayback() {
-      if (!isMusicOn) return;
-      ensureMusicContext();
-      if (musicGainNode && musicAudioCtx) {
+    function stopMusic() {
+      if (songTimer) clearTimeout(songTimer);
+      if (musicGainNode && audioCtx) {
         try {
-          const now = musicAudioCtx.currentTime;
-          musicGainNode.gain.cancelScheduledValues(now);
-          musicGainNode.gain.setValueAtTime(0.6, now);
-        } catch (e) {}
-      }
-      startMusicLoop();
-    }
-
-    function pauseMusicGainOnly() {
-      if (songTimer) {
-        clearTimeout(songTimer);
-        songTimer = null;
-      }
-      if (musicGainNode && musicAudioCtx) {
-        try {
-          const now = musicAudioCtx.currentTime;
+          const now = audioCtx.currentTime;
           musicGainNode.gain.cancelScheduledValues(now);
           musicGainNode.gain.setValueAtTime(0, now);
         } catch (e) {}
       }
     }
 
-    function toggleMusicManual() {
-      isMusicOn = !isMusicOn;
-      updateMusicButtonUI();
-      if (isMusicOn) {
-        resumeMusicPlayback();
-      } else {
-        pauseMusicGainOnly();
+    function resumeMusicGain() {
+      if (musicGainNode && audioCtx) {
+        try {
+          const now = audioCtx.currentTime;
+          musicGainNode.gain.cancelScheduledValues(now);
+          musicGainNode.gain.setValueAtTime(0.6, now);
+        } catch (e) {}
       }
     }
 
@@ -428,17 +410,27 @@
       }
     }
 
-    // 仅通过左下角按钮手动开关
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleMusicManual();
+      ensureAudioContext();
+      resumeAudioContext();
+
+      isMusicOn = !isMusicOn;
+      updateMusicButtonUI();
+
+      if (isMusicOn) {
+        resumeMusicGain();
+        startMusicLoop();
+      } else {
+        stopMusic();
+      }
     });
 
-    // --- 4. 麦克风吹气拾音与完全释放 ---
+    // --- 4. 麦克风吹气拾音 ---
     async function requestAndStartMic() {
       try {
-        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-        micAudioCtx = new AudioCtxClass();
+        ensureAudioContext();
+        resumeAudioContext();
 
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -448,16 +440,24 @@
           }
         });
 
-        if (micAudioCtx.state === 'suspended') {
-          await micAudioCtx.resume();
+        resumeAudioContext();
+
+        if (isMusicOn) {
+          setTimeout(() => {
+            resumeAudioContext();
+            resumeMusicGain();
+            if (isMusicOn && !songTimer) {
+              startMusicLoop();
+            }
+          }, 100);
         }
 
-        analyser = micAudioCtx.createAnalyser();
+        analyser = audioCtx.createAnalyser();
         analyser.fftSize = 256;
         analyser.smoothingTimeConstant = 0.35;
 
-        const source = micAudioCtx.createMediaStreamSource(micStream);
-        const filter = micAudioCtx.createBiquadFilter();
+        const source = audioCtx.createMediaStreamSource(micStream);
+        const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 320;
 
@@ -474,6 +474,7 @@
         function detectBlow() {
           if (!isLit || !canBlow || appState !== 'BLOWING') {
             blowFrames = 0;
+            requestAnimationFrame(detectBlow);
             return;
           }
 
@@ -491,15 +492,13 @@
             if (blowFrames >= 8) {
               extinguish();
               blowFrames = 0;
-              return;
             }
           } else {
             blowFrames = Math.max(0, blowFrames - 1);
           }
 
-          micDetectionId = requestAnimationFrame(detectBlow);
+          requestAnimationFrame(detectBlow);
         }
-
         detectBlow();
         return true;
       } catch (err) {
@@ -508,30 +507,24 @@
       }
     }
 
-    // 彻底释放麦克风，恢复系统媒体播放通道
-    function releaseMicrophone() {
-      canBlow = false;
-      if (micDetectionId) {
-        cancelAnimationFrame(micDetectionId);
-        micDetectionId = null;
-      }
-      if (micStream) {
-        micStream.getTracks().forEach(track => track.stop());
-        micStream = null;
-      }
-      if (micAudioCtx) {
-        micAudioCtx.close().catch(() => {});
-        micAudioCtx = null;
-      }
-      micStarted = false;
-    }
-
     // --- 5. 核心交互按钮事件 ---
     async function handleMainBtnClick(e) {
       e.stopPropagation();
 
       if (appState === 'READY') {
-        // 不碰音乐开关，只处理吹蜡烛业务逻辑
+        if (!isMusicOn) {
+          isMusicOn = true;
+          updateMusicButtonUI();
+          ensureAudioContext();
+          resumeAudioContext();
+          resumeMusicGain();
+          startMusicLoop();
+        } else {
+          resumeAudioContext();
+          resumeMusicGain();
+          if (!songTimer) startMusicLoop();
+        }
+
         mainBtn.innerText = "Connecting...";
         appState = 'BLOWING';
         mainBtn.className = "btn-blow";
@@ -547,7 +540,7 @@
               canBlow = true;
               blowFrames = 0;
             }
-          }, 800);
+          }, 900);
         } else {
           canBlow = true;
         }
@@ -571,11 +564,9 @@
     function extinguish() {
       if (!isLit) return;
       isLit = false;
+      canBlow = false;
       blowFrames = 0;
       appState = 'EXTINGUISHED';
-
-      // 1. 彻底关闭麦克风占用
-      releaseMicrophone();
 
       mainTitle.innerText = "Wish Granted!";
       subTitle.innerText = "May all your dreams sparkle into reality!";
@@ -583,11 +574,13 @@
       actionContainer.classList.add('hidden');
       createBurst();
 
-      // 2. 延迟 150ms 等系统声卡切回媒体播放模式后，恢复用户设定的音乐
-      if (isMusicOn) {
-        setTimeout(() => {
-          resumeMusicPlayback();
-        }, 150);
+      if (!isMusicOn) {
+        isMusicOn = true;
+        updateMusicButtonUI();
+        ensureAudioContext();
+        resumeAudioContext();
+        resumeMusicGain();
+        startMusicLoop();
       }
 
       setTimeout(() => {
@@ -600,11 +593,12 @@
       }, 1700);
     }
 
-    async function relight() {
+    function relight() {
       isLit = true;
       canBlow = false;
       blowFrames = 0;
       burstParticles.length = 0;
+      textParticles.length = 0; // 重置文字粒子
 
       mainTitle.innerText = "Happy Birthday!";
       subTitle.innerText = "Make a wish and blow into the mic!";
@@ -614,14 +608,12 @@
       mainBtn.innerText = "Tap or Blow";
       statusHint.innerText = "Blow onto mic or tap directly to extinguish!";
 
-      // 重新点燃时按需重新初始化麦克风
-      const ok = await requestAndStartMic();
       setTimeout(() => {
         if (isLit) {
           canBlow = true;
           blowFrames = 0;
         }
-      }, ok ? 800 : 0);
+      }, 2000);
     }
 
     // --- 7. 手势 / 鼠标滑动 3D 旋转控制 ---
@@ -677,6 +669,7 @@
     const cakeParticles = [];
     const flameParticles = [];
     const burstParticles = [];
+    const textParticles = []; // 文字聚合粒子
 
     const cakeColors = [
       'rgba(255, 255, 255, ',
@@ -752,8 +745,48 @@
       }
     });
 
+    // --- 9. 离屏采样生成两行文字 3D 骨架坐标 ---
+    function sampleTextTargets() {
+      const offCanvas = document.createElement('canvas');
+      const offCtx = offCanvas.getContext('2d');
+      offCanvas.width = 750;
+      offCanvas.height = 200;
+
+      offCtx.fillStyle = '#ffffff';
+      offCtx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      offCtx.textAlign = 'center';
+      offCtx.textBaseline = 'middle';
+
+      // 两行居中显示
+      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 65);
+      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 135);
+
+      const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
+      const targets = [];
+      const step = 4; // 采样密度步长
+
+      for (let y = 0; y < offCanvas.height; y += step) {
+        for (let x = 0; x < offCanvas.width; x += step) {
+          const index = (y * offCanvas.width + x) * 4;
+          if (imgData[index + 3] > 128) {
+            // 将 2D 坐标映射到 3D 空间
+            // 空间 Y 范围约在 180 ~ 240 之间（刚好位于蜡烛 140 之上、顶部标题之下）
+            const tx = (x - offCanvas.width / 2) * 0.52;
+            const ty = 230 - (y - offCanvas.height / 2) * 0.52;
+            const tz = (Math.random() - 0.5) * 8; // 微微厚度
+            targets.push({ x: tx, y: ty, z: tz });
+          }
+        }
+      }
+      return targets;
+    }
+
+    const textTargets = sampleTextTargets();
+
     function createBurst() {
       burstParticles.length = 0;
+      textParticles.length = 0;
+
       const burstColors = [
         'rgba(255, 255, 255, ',
         'rgba(255, 250, 235, ',
@@ -762,7 +795,8 @@
         'rgba(255, 133, 173, '
       ];
 
-      for (let i = 0; i < 2600; i++) {
+      // 1. 周围发散爆炸烟花粒子
+      for (let i = 0; i < 2000; i++) {
         const cx = candleXs[i % 3];
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
@@ -783,9 +817,48 @@
           maxLife: Math.random() * 220 + 150
         });
       }
+
+      // 2. 刹那爆发并迅速向上聚集成文字的粒子
+      const textParticleColors = [
+        'rgba(255, 255, 255, ',
+        'rgba(255, 240, 245, ',
+        'rgba(255, 215, 235, ',
+        'rgba(254, 243, 199, ',
+        'rgba(255, 182, 193, '
+      ];
+
+      for (let i = 0; i < textTargets.length; i++) {
+        const target = textTargets[i];
+        const originCandleX = candleXs[i % 3];
+        
+        // 初始像爆炸一样从烛芯向上冲出
+        const angle = Math.random() * Math.PI * 2;
+        const spreadSpeed = Math.random() * 7 + 2;
+
+        textParticles.push({
+          // 当前位置（从蜡烛顶部爆发）
+          x: originCandleX + (Math.random() - 0.5) * 6,
+          y: 138 + Math.random() * 4,
+          z: (Math.random() - 0.5) * 6,
+          // 初始爆发冲力
+          vx: Math.cos(angle) * spreadSpeed,
+          vy: Math.random() * 9 + 4,
+          vz: Math.sin(angle) * spreadSpeed,
+          // 目标文字坐标
+          tx: target.x,
+          ty: target.y,
+          tz: target.z,
+          size: Math.random() * 0.35 + 0.42,
+          color: textParticleColors[Math.floor(Math.random() * textParticleColors.length)],
+          alpha: 0,
+          convergeDelay: Math.random() * 15 + 10, // 爆炸 10~25 帧后受磁吸聚集
+          age: 0,
+          seed: Math.random() * 100
+        });
+      }
     }
 
-    // --- 9. 渲染主循环 ---
+    // --- 10. 渲染主循环 ---
     const fov = 420;
 
     function render() {
@@ -827,6 +900,7 @@
         };
       }
 
+      // 蛋糕体
       for (let i = 0; i < cakeParticles.length; i++) {
         const p = cakeParticles[i];
         const proj = project(p.x, p.y, p.z);
@@ -840,6 +914,7 @@
         });
       }
 
+      // 蜡烛火焰
       if (isLit) {
         const t = Date.now() * 0.0025;
         for (let i = 0; i < flameParticles.length; i++) {
@@ -861,6 +936,7 @@
         }
       }
 
+      // 爆炸外扩粒子
       for (let i = 0; i < burstParticles.length; i++) {
         const b = burstParticles[i];
         b.life++;
@@ -888,6 +964,46 @@
             size: b.size * proj.scale,
             color: b.color,
             alpha: b.alpha
+          });
+        }
+      }
+
+      // 聚合为文字的星尘粒子
+      const nowTime = Date.now() * 0.003;
+      for (let i = 0; i < textParticles.length; i++) {
+        const tp = textParticles[i];
+        tp.age++;
+
+        if (tp.age < tp.convergeDelay) {
+          // 第一阶段：向上爆发飞散
+          tp.x += tp.vx;
+          tp.y += tp.vy;
+          tp.z += tp.vz;
+          tp.vx *= 0.92;
+          tp.vy *= 0.92;
+          tp.vz *= 0.92;
+          tp.alpha = Math.min(1.0, tp.age / 12);
+        } else {
+          // 第二阶段：弹性磁吸到文字骨架坐标
+          const ease = 0.085;
+          tp.x += (tp.tx - tp.x) * ease;
+          tp.y += (tp.ty - tp.y) * ease;
+          tp.z += (tp.tz - tp.z) * ease;
+
+          // 保持恒定微闪与呼吸浮动
+          const shimmer = Math.sin(nowTime * 2.5 + tp.seed) * 0.18;
+          tp.alpha = Math.min(1.0, 0.82 + shimmer);
+        }
+
+        const proj = project(tp.x, tp.y, tp.z);
+        if (proj.z > 10) {
+          renderQueue.push({
+            x: proj.x2d,
+            y: proj.y2d,
+            z: proj.z - 5,
+            size: tp.size * proj.scale * (tp.age > tp.convergeDelay ? 1.05 : 0.8),
+            color: tp.color,
+            alpha: tp.alpha
           });
         }
       }
