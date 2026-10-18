@@ -380,6 +380,7 @@
       }, (totalTime + 0.6) * 1000);
     }
 
+    // 核心统一方法：关闭音乐并把按钮变为 OFF
     function stopMusic() {
       isMusicOn = false;
       updateMusicButtonUI();
@@ -507,7 +508,7 @@
       e.stopPropagation();
 
       if (appState === 'READY') {
-        // 核心优化：如果音乐是开着的，立即关闭并把按钮UI改为 OFF
+        // 点击“Ready to Blow”进入准备吹蜡烛状态：若音乐开启，彻底关闭音乐，UI 立即变成 OFF
         if (isMusicOn) {
           stopMusic();
         }
@@ -554,6 +555,11 @@
       canBlow = false;
       blowFrames = 0;
       appState = 'EXTINGUISHED';
+
+      // 吹灭蜡烛瞬间：若音乐还在响，确保彻底关闭音乐并把按钮变为 OFF
+      if (isMusicOn) {
+        stopMusic();
+      }
 
       mainTitle.innerText = "Wish Granted!";
       subTitle.innerText = "May all your dreams sparkle into reality!";
@@ -723,29 +729,26 @@
       }
     });
 
-    // --- 9. 高清晰度超密点阵采样（实心笔画，精准靠近蜡烛顶部） ---
+    // --- 9. 适量精美点阵采样（数量收敛，不杂乱，清晰度高） ---
     function sampleTextTargets() {
       const offCanvas = document.createElement('canvas');
       const offCtx = offCanvas.getContext('2d');
-      // 放大离屏画布分辨率，采样极度细腻
-      offCanvas.width = 720;
+      offCanvas.width = 680;
       offCanvas.height = 140;
 
       offCtx.fillStyle = '#ffffff';
-      // 使用极粗、笔画扎实的黑体风格
-      offCtx.font = '900 32px -apple-system, BlinkMacSystemFont, "Arial Black", "PingFang SC", sans-serif';
+      offCtx.font = '900 31px -apple-system, BlinkMacSystemFont, "Arial Black", "PingFang SC", sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
 
-      // 紧密双行排布
       offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 42);
       offCtx.fillText("Stay you My girl", offCanvas.width / 2, 94);
 
       const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
       const targets = [];
       
-      // 关键优化：采样步长收紧到 0.9px，采样密度翻倍，确保笔画绝不碎裂
-      const step = 0.9;
+      // 优化 1：步长微调为 1.65px，点阵数量减少约 35%，字迹匀称不拥挤
+      const step = 1.65;
 
       for (let y = 0; y < offCanvas.height; y += step) {
         for (let x = 0; x < offCanvas.width; x += step) {
@@ -753,11 +756,9 @@
           const py = Math.floor(y);
           const index = (py * offCanvas.width + px) * 4;
 
-          // 只选取核心不透明像素，边缘极其锐利
-          if (imgData[index + 3] > 150) {
-            // 中心 Y 在 150，完美贴近蜡烛顶（Y=138）上方
-            const tx = (px - offCanvas.width / 2) * 0.32;
-            const ty = 150 - (py - offCanvas.height / 2) * 0.32;
+          if (imgData[index + 3] > 155) {
+            const tx = (px - offCanvas.width / 2) * 0.33;
+            const ty = 150 - (py - offCanvas.height / 2) * 0.33;
             targets.push({ x: tx, y: ty, z: 0 });
           }
         }
@@ -779,36 +780,36 @@
         'rgba(255, 133, 173, '
       ];
 
-      // 1. 周围发散爆炸烟花粒子
-      for (let i = 0; i < 1600; i++) {
+      // 优化 2：发散爆炸烟花粒子从 1600 大幅降至 700，刹那间不再过载
+      for (let i = 0; i < 700; i++) {
         const cx = candleXs[i % 3];
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
-        const speed = Math.random() * 11 + 2.5;
+        const speed = Math.random() * 9 + 2.0;
 
         burstParticles.push({
-          x: cx + (Math.random() - 0.5) * 8,
-          y: 138 + (Math.random() - 0.5) * 8,
-          z: (Math.random() - 0.5) * 8,
+          x: cx + (Math.random() - 0.5) * 6,
+          y: 138 + (Math.random() - 0.5) * 6,
+          z: (Math.random() - 0.5) * 6,
           vx: Math.sin(phi) * Math.cos(theta) * speed,
-          vy: Math.cos(phi) * speed + 0.5,
-          vz: Math.sin(phi) * Math.sin(theta) * speed * 1.3,
-          size: Math.random() * 0.35 + 0.28,
+          vy: Math.cos(phi) * speed + 0.4,
+          vz: Math.sin(phi) * Math.sin(theta) * speed * 1.2,
+          size: Math.random() * 0.32 + 0.25,
           color: burstColors[Math.floor(Math.random() * burstColors.length)],
-          alpha: 1.0,
-          drag: 0.974,
+          alpha: 0.9,
+          drag: 0.970,
           life: 0,
-          maxLife: Math.random() * 220 + 150
+          maxLife: Math.random() * 180 + 120
         });
       }
 
-      // 2. 超高密度文字粒子：主体采用高亮度纯白与淡金
+      // 文字星尘粒子配置
       const textParticleColors = [
         'rgba(255, 255, 255, ',
         'rgba(255, 255, 255, ',
-        'rgba(255, 252, 235, ',
-        'rgba(255, 240, 248, ',
-        'rgba(254, 243, 199, '
+        'rgba(255, 250, 235, ',
+        'rgba(254, 243, 199, ',
+        'rgba(255, 215, 230, '
       ];
 
       for (let i = 0; i < textTargets.length; i++) {
@@ -816,23 +817,22 @@
         const originCandleX = candleXs[i % 3];
         
         const angle = Math.random() * Math.PI * 2;
-        const spreadSpeed = Math.random() * 4.5 + 1.0;
+        const spreadSpeed = Math.random() * 3.8 + 0.8;
 
         textParticles.push({
-          x: originCandleX + (Math.random() - 0.5) * 4,
-          y: 138 + Math.random() * 3,
-          z: (Math.random() - 0.5) * 4,
+          x: originCandleX + (Math.random() - 0.5) * 3,
+          y: 138 + Math.random() * 2,
+          z: (Math.random() - 0.5) * 3,
           vx: Math.cos(angle) * spreadSpeed,
-          vy: Math.random() * 5 + 2,
+          vy: Math.random() * 4.5 + 1.5,
           vz: Math.sin(angle) * spreadSpeed,
           tx: target.x,
           ty: target.y,
           tz: target.z,
-          // 尺寸饱满，笔画无缝衔接
-          size: 0.62,
+          size: 0.58,
           color: textParticleColors[i % textParticleColors.length],
           alpha: 0,
-          convergeDelay: Math.random() * 8 + 6,
+          convergeDelay: Math.random() * 6 + 5,
           age: 0,
           seed: Math.random() * 100
         });
@@ -930,10 +930,10 @@
         b.y += b.vy;
         b.z += b.vz;
 
-        b.y += Math.sin(Date.now() * 0.001 + i) * 0.03;
-        b.x += Math.cos(Date.now() * 0.001 + i) * 0.03;
+        b.y += Math.sin(Date.now() * 0.001 + i) * 0.025;
+        b.x += Math.cos(Date.now() * 0.001 + i) * 0.025;
 
-        b.alpha = Math.max(0, 1.0 - (b.life / b.maxLife));
+        b.alpha = Math.max(0, 0.9 - (b.life / b.maxLife));
 
         const proj = project(b.x, b.y, b.z);
 
@@ -959,19 +959,18 @@
           tp.x += tp.vx;
           tp.y += tp.vy;
           tp.z += tp.vz;
-          tp.vx *= 0.88;
-          tp.vy *= 0.88;
-          tp.vz *= 0.88;
-          tp.alpha = Math.min(1.0, tp.age / 6);
+          tp.vx *= 0.86;
+          tp.vy *= 0.86;
+          tp.vz *= 0.86;
+          tp.alpha = Math.min(0.85, tp.age / 8);
         } else {
-          // 提升吸附锁定速度至 0.18，稳定锚定在目标文字坐标上
-          const ease = 0.18;
+          const ease = 0.17;
           tp.x += (tp.tx - tp.x) * ease;
           tp.y += (tp.ty - tp.y) * ease;
           tp.z += (tp.tz - tp.z) * ease;
 
           const shimmer = Math.sin(nowTime * 2.5 + tp.seed) * 0.06;
-          tp.alpha = Math.min(1.0, 0.94 + shimmer);
+          tp.alpha = Math.min(1.0, 0.92 + shimmer);
         }
 
         const proj = project(tp.x, tp.y, tp.z);
@@ -995,7 +994,7 @@
         if (item.size <= 0) continue;
         ctx.fillStyle = item.color + item.alpha + ')';
         ctx.beginPath();
-        ctx.arc(item.x, item.y, Math.max(0.4, item.size), 0, Math.PI * 2);
+        ctx.arc(item.x, item.y, Math.max(0.35, item.size), 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalCompositeOperation = 'source-over';
