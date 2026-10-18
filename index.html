@@ -56,7 +56,7 @@
       padding: 0 10px;
     }
 
-    /* 优化发光：彻底去除白色发光，保留纯粹柔和淡粉光 */
+    /* 纯粹柔和淡粉光，无白色发光层 */
     .header h1 {
       font-size: 2.3rem;
       font-weight: 800;
@@ -104,6 +104,14 @@
       align-items: center;
       gap: 6px;
       transition: all 0.2s;
+      opacity: 0.7; /* 默认关闭状态稍微透明 */
+    }
+
+    .music-btn.active {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
     }
 
     .music-btn:active {
@@ -153,7 +161,7 @@
       transform: scale(0.96);
     }
 
-    /* 阶段二：授权后的粉色吹气按钮 */
+    /* 阶段二：粉色吹气按钮 */
     .btn-blow {
       display: inline-flex;
       align-items: center;
@@ -179,7 +187,7 @@
       transform: scale(0.96);
     }
 
-    /* 阶段三：吹灭后的 Relight Again 纯白按钮（单行、无粉色外光） */
+    /* 阶段三：吹灭后的 Relight Again 纯白按钮 */
     .btn-relight {
       display: inline-flex;
       align-items: center;
@@ -222,12 +230,6 @@
       transform: translate(-50%, -48%) scale(0.94) !important;
     }
 
-    .visible {
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      transform: translate(-50%, -50%) scale(1) !important;
-    }
-
     @keyframes pulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.04); }
@@ -246,14 +248,13 @@
 
     <!-- 居中交互按钮容器 -->
     <div class="center-action" id="actionContainer">
-      <!-- 初始默认：白色描边按钮 -->
       <button class="btn-ready" id="mainBtn">Ready to Blow</button>
       <span class="sub-tip" id="statusHint">Tap to enable mic for blowing</span>
     </div>
 
-    <!-- 左下角音乐控制 -->
+    <!-- 左下角音乐按钮：初始状态显示 Music: OFF -->
     <div class="bottom-bar">
-      <button class="music-btn" id="musicToggle">Music: ON</button>
+      <button class="music-btn" id="musicToggle">Music: OFF</button>
     </div>
   </div>
 
@@ -271,8 +272,7 @@
     window.addEventListener('resize', resize);
 
     // --- 2. 状态机管理 ---
-    // 阶段：'READY'(白色按钮) -> 'BLOWING'(粉色按钮) -> 'EXTINGUISHED'(白色Relight)
-    let appState = 'READY';
+    let appState = 'READY'; // READY -> BLOWING -> EXTINGUISHED
     let isLit = true;
     let micStarted = false;
     let audioCtx = null;
@@ -280,7 +280,9 @@
     let micStream = null;
     let blowFrames = 0;
     let canBlow = false;
-    let isMusicOn = true;
+
+    // 初始状态音乐为关闭
+    let isMusicOn = false;
     let isMusicPlaying = false;
     let songTimer = null;
 
@@ -291,7 +293,7 @@
     const statusHint = document.getElementById('statusHint');
     const musicToggle = document.getElementById('musicToggle');
 
-    // --- 3. 浪漫欢快华尔兹版八音盒音乐引擎（双声部复调合成）---
+    // --- 3. 全新梦幻八音盒乐谱（温暖、浪漫、治愈系小夜曲华尔兹）---
     function ensureAudioContext() {
       if (!audioCtx) {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -302,20 +304,20 @@
       }
     }
 
-    // 演奏具有空气感与暖意的复音八音盒
-    function playWaltzTone(freq, time, duration, isBass = false) {
+    // 纯净八音盒音色合成器
+    function playMusicBoxBell(freq, time, duration, isLow = false) {
       if (!audioCtx || !isMusicOn) return;
       try {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
-        // 高音主旋律晶莹剔透，低音和弦温润柔和
-        osc.type = isBass ? 'sine' : 'triangle';
+        // 正弦波带极短高频泛音模拟敲击金属簧片
+        osc.type = isLow ? 'sine' : 'triangle';
         osc.frequency.setValueAtTime(freq, time);
 
-        const peakVolume = isBass ? 0.12 : 0.22;
+        const vol = isLow ? 0.12 : 0.22;
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.linearRampToValueAtTime(peakVolume, time + 0.02);
+        gain.gain.linearRampToValueAtTime(vol, time + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
 
         osc.connect(gain);
@@ -328,20 +330,31 @@
       }
     }
 
-    // 浪漫轻快的 3/4 拍生日华尔兹双声部乐谱
-    const waltzMelody = [
-      // 乐段 1: Happy birthday to you~
-      { f: 261.63, b: 130.81, d: 0.35 }, { f: 261.63, b: 164.81, d: 0.35 }, { f: 293.66, b: 196.00, d: 0.65 },
-      { f: 261.63, b: 164.81, d: 0.65 }, { f: 349.23, b: 174.61, d: 0.65 }, { f: 329.63, b: 130.81, d: 1.25 },
-      // 乐段 2: Happy birthday to you~
-      { f: 261.63, b: 130.81, d: 0.35 }, { f: 261.63, b: 164.81, d: 0.35 }, { f: 293.66, b: 196.00, d: 0.65 },
-      { f: 261.63, b: 196.00, d: 0.65 }, { f: 392.00, b: 196.00, d: 0.65 }, { f: 349.23, b: 174.61, d: 1.25 },
-      // 乐段 3: Happy birthday dear friend~ (欢快高潮)
-      { f: 261.63, b: 130.81, d: 0.35 }, { f: 261.63, b: 164.81, d: 0.35 }, { f: 523.25, b: 261.63, d: 0.65 },
-      { f: 440.00, b: 220.00, d: 0.65 }, { f: 349.23, b: 174.61, d: 0.65 }, { f: 329.63, b: 164.81, d: 0.65 }, { f: 293.66, b: 146.83, d: 0.95 },
-      // 乐段 4: Happy birthday to you!
-      { f: 466.16, b: 233.08, d: 0.35 }, { f: 466.16, b: 233.08, d: 0.35 }, { f: 440.00, b: 220.00, d: 0.65 },
-      { f: 349.23, b: 174.61, d: 0.65 }, { f: 392.00, b: 196.00, d: 0.65 }, { f: 349.23, b: 174.61, d: 1.45 }
+    // 全新浪漫治愈曲目：《星夜梦境》（Starlight Waltz）
+    // 采用 3/4 拍浪漫分解和弦与八音盒主旋律交融
+    const dreamMelody = [
+      // 乐句 1：柔美开篇
+      { melody: 523.25, bass: 261.63, dur: 0.45 },
+      { melody: 587.33, bass: 329.63, dur: 0.45 },
+      { melody: 659.25, bass: 392.00, dur: 0.9 },
+      { melody: 587.33, bass: 329.63, dur: 0.45 },
+      { melody: 523.25, bass: 261.63, dur: 0.9 },
+      // 乐句 2：起伏流淌
+      { melody: 440.00, bass: 220.00, dur: 0.45 },
+      { melody: 523.25, bass: 261.63, dur: 0.45 },
+      { melody: 587.33, bass: 293.66, dur: 0.9 },
+      { melody: 659.25, bass: 329.63, dur: 0.45 },
+      { melody: 493.88, bass: 246.94, dur: 1.1 },
+      // 乐句 3：浪漫高潮
+      { melody: 659.25, bass: 329.63, dur: 0.45 },
+      { melody: 698.46, bass: 349.23, dur: 0.45 },
+      { melody: 783.99, bass: 392.00, dur: 0.9 },
+      { melody: 880.00, bass: 440.00, dur: 0.45 },
+      { melody: 783.99, bass: 392.00, dur: 0.9 },
+      // 乐句 4：温暖收束
+      { melody: 659.25, bass: 329.63, dur: 0.45 },
+      { melody: 587.33, bass: 293.66, dur: 0.45 },
+      { melody: 523.25, bass: 261.63, dur: 1.35 }
     ];
 
     function startMusicLoop() {
@@ -349,21 +362,24 @@
       ensureAudioContext();
       if (songTimer) clearTimeout(songTimer);
 
-      let startTime = audioCtx.currentTime + 0.05;
-      let totalLength = 0;
+      let now = audioCtx.currentTime + 0.05;
+      let totalTime = 0;
 
-      waltzMelody.forEach(note => {
-        playWaltzTone(note.f, startTime, note.d * 1.15, false); // 主旋律
-        playWaltzTone(note.b, startTime, note.d * 1.3, true);   // 浪漫低音和弦
-        const step = note.d * 0.94;
-        startTime += step;
-        totalLength += step;
+      dreamMelody.forEach(note => {
+        // 主音
+        playMusicBoxBell(note.melody, now, note.dur * 1.25, false);
+        // 和弦低音伴奏
+        playMusicBoxBell(note.bass, now, note.dur * 1.4, true);
+        const step = note.dur * 0.92;
+        now += step;
+        totalTime += step;
       });
 
       isMusicPlaying = true;
+      // 循环播放衔接
       songTimer = setTimeout(() => {
         if (isMusicOn) startMusicLoop();
-      }, (totalLength + 0.4) * 1000);
+      }, (totalTime + 0.4) * 1000);
     }
 
     function stopMusic() {
@@ -371,24 +387,28 @@
       isMusicPlaying = false;
     }
 
-    // 全局强制解锁音频（微信/Safari 触控即播突破）
-    function unlockAudioOnAnyTouch() {
-      ensureAudioContext();
-      if (!isMusicPlaying && isMusicOn) {
-        startMusicLoop();
+    // 更新音乐按钮外观
+    function updateMusicButtonUI() {
+      if (isMusicOn) {
+        musicToggle.innerText = "Music: ON";
+        musicToggle.classList.add('active');
+      } else {
+        musicToggle.innerText = "Music: OFF";
+        musicToggle.classList.remove('active');
       }
     }
-    window.addEventListener('touchstart', unlockAudioOnAnyTouch, { passive: true });
-    window.addEventListener('pointerdown', unlockAudioOnAnyTouch, { passive: true });
 
+    // 手动点击左下角音乐按钮触发
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       ensureAudioContext();
       isMusicOn = !isMusicOn;
-      musicToggle.innerText = isMusicOn ? "Music: ON" : "Music: OFF";
-      musicToggle.style.opacity = isMusicOn ? "1" : "0.5";
-      if (isMusicOn) startMusicLoop();
-      else stopMusic();
+      updateMusicButtonUI();
+      if (isMusicOn) {
+        startMusicLoop();
+      } else {
+        stopMusic();
+      }
     });
 
     // --- 4. 麦克风吹气拾音逻辑 ---
@@ -437,7 +457,6 @@
           }
           const lowAverage = energySum / lowBins;
 
-          // 检测到持续气流
           if (lowAverage > 35) {
             blowFrames++;
             if (blowFrames >= 4) {
@@ -458,16 +477,22 @@
       }
     }
 
-    // --- 5. 核心交互按钮状态切换 ---
+    // --- 5. 核心交互按钮事件 ---
     async function handleMainBtnClick(e) {
       e.stopPropagation();
-      unlockAudioOnAnyTouch();
 
-      // 阶段 1：点击白色准备按钮 -> 请求麦克风权限 -> 变成粉色 Tap or Blow
+      // 阶段 1：点击白色 Ready to Blow
       if (appState === 'READY') {
+        // 核心改动：点击准备吹蜡烛时，同时自动激活并打开音乐！
+        if (!isMusicOn) {
+          isMusicOn = true;
+          updateMusicButtonUI();
+          startMusicLoop();
+        }
+
         mainBtn.innerText = "Connecting...";
         const ok = await requestAndStartMic();
-        
+
         appState = 'BLOWING';
         mainBtn.className = "btn-blow";
         mainBtn.innerText = "Tap or Blow";
@@ -476,7 +501,7 @@
         return;
       }
 
-      // 阶段 2：处于粉色阶段，直接点击也能吹灭
+      // 阶段 2：粉色状态下，直接点击也可吹灭
       if (appState === 'BLOWING' && isLit) {
         extinguish();
         return;
@@ -491,7 +516,7 @@
 
     mainBtn.addEventListener('click', handleMainBtnClick);
 
-    // --- 6. 吹灭与重燃动效 ---
+    // --- 6. 吹熄与重燃动效 ---
     function extinguish() {
       if (!isLit) return;
       isLit = false;
@@ -502,15 +527,16 @@
       mainTitle.innerText = "Wish Granted!";
       subTitle.innerText = "May all your dreams sparkle into reality!";
 
-      // 当前按钮快速淡出隐藏
       actionContainer.classList.add('hidden');
       createBurst();
 
-      if (!isMusicPlaying && isMusicOn) {
+      // 如果音乐未开，吹灭时也同步开启梦幻旋律
+      if (!isMusicOn) {
+        isMusicOn = true;
+        updateMusicButtonUI();
         startMusicLoop();
       }
 
-      // 停顿 1.7 秒后，全新白色单行的 Relight Again 按钮优雅浮现
       setTimeout(() => {
         if (!isLit) {
           mainBtn.className = "btn-relight";
@@ -530,7 +556,6 @@
       mainTitle.innerText = "Happy Birthday!";
       subTitle.innerText = "Make a wish and blow into the mic!";
 
-      // 重置直接回到粉色的吹气状态（麦克风已授权，无需重复授权）
       appState = 'BLOWING';
       mainBtn.className = "btn-blow";
       mainBtn.innerText = "Tap or Blow";
