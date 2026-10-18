@@ -268,12 +268,12 @@
     let micStarted = false;
     let blowFrames = 0;
     let canBlow = false;
+    let micDetectionId = null;
 
     // 默认进入页面时：音乐关闭
     let isMusicOn = false;
     let songTimer = null;
 
-    // 关键优化：独立分立两个 AudioContext，麦克风硬件切换绝不干扰音乐
     let musicAudioCtx = null;
     let musicGainNode = null;
     let micAudioCtx = null;
@@ -287,7 +287,7 @@
     const statusHint = document.getElementById('statusHint');
     const musicToggle = document.getElementById('musicToggle');
 
-    // --- 3. 音乐播放专有音频通道 ---
+    // --- 3. 音乐播放逻辑 ---
     function ensureMusicContext() {
       if (!musicAudioCtx) {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -357,7 +357,7 @@
       { m: 523.25, b: 261.63, d: 1.5 }
     ];
 
-    function scheduleMelodyLoop() {
+    function startMusicLoop() {
       if (!isMusicOn || !musicAudioCtx) return;
       if (songTimer) clearTimeout(songTimer);
 
@@ -377,24 +377,13 @@
       });
 
       songTimer = setTimeout(() => {
-        if (isMusicOn) {
-          scheduleMelodyLoop();
-        }
+        if (isMusicOn) startMusicLoop();
       }, (totalTime + 0.5) * 1000);
     }
 
-    function turnOnMusic() {
-      if (isMusicOn) {
-        // 如果已经开启，确保 context 处于运行状态，直接返回不重新触发造成重音
-        if (musicAudioCtx && musicAudioCtx.state === 'suspended') {
-          musicAudioCtx.resume().catch(() => {});
-        }
-        return;
-      }
-      isMusicOn = true;
-      updateMusicButtonUI();
+    function resumeMusicPlayback() {
+      if (!isMusicOn) return;
       ensureMusicContext();
-
       if (musicGainNode && musicAudioCtx) {
         try {
           const now = musicAudioCtx.currentTime;
@@ -402,12 +391,10 @@
           musicGainNode.gain.setValueAtTime(0.6, now);
         } catch (e) {}
       }
-      scheduleMelodyLoop();
+      startMusicLoop();
     }
 
-    function turnOffMusic() {
-      isMusicOn = false;
-      updateMusicButtonUI();
+    function pauseMusicGainOnly() {
       if (songTimer) {
         clearTimeout(songTimer);
         songTimer = null;
@@ -421,6 +408,16 @@
       }
     }
 
+    function toggleMusicManual() {
+      isMusicOn = !isMusicOn;
+      updateMusicButtonUI();
+      if (isMusicOn) {
+        resumeMusicPlayback();
+      } else {
+        pauseMusicGainOnly();
+      }
+    }
+
     function updateMusicButtonUI() {
       if (isMusicOn) {
         musicToggle.innerText = "Music: ON";
@@ -431,23 +428,14 @@
       }
     }
 
-    // 左下角音乐按钮切换
+    // 仅通过左下角按钮手动开关
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (isMusicOn) {
-        turnOffMusic();
-      } else {
-        turnOnMusic();
-      }
+      toggleMusicManual();
     });
 
-    // --- 4. 独立麦克风吹气拾音 ---
+    // --- 4. 麦克风吹气拾音与完全释放 ---
     async function requestAndStartMic() {
-      if (micStarted) {
-        canBlow = true;
-        return true;
-      }
-
       try {
         const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
         micAudioCtx = new AudioCtxClass();
@@ -486,7 +474,6 @@
         function detectBlow() {
           if (!isLit || !canBlow || appState !== 'BLOWING') {
             blowFrames = 0;
-            requestAnimationFrame(detectBlow);
             return;
           }
 
@@ -504,12 +491,13 @@
             if (blowFrames >= 8) {
               extinguish();
               blowFrames = 0;
+              return;
             }
           } else {
             blowFrames = Math.max(0, blowFrames - 1);
           }
 
-          requestAnimationFrame(detectBlow);
+          micDetectionId = requestAnimationFrame(detectBlow);
         }
 
         detectBlow();
@@ -520,14 +508,30 @@
       }
     }
 
+    // 彻底释放麦克风，恢复系统媒体播放通道
+    function releaseMicrophone() {
+      canBlow = false;
+      if (micDetectionId) {
+        cancelAnimationFrame(micDetectionId);
+        micDetectionId = null;
+      }
+      if (micStream) {
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
+      }
+      if (micAudioCtx) {
+        micAudioCtx.close().catch(() => {});
+        micAudioCtx = null;
+      }
+      micStarted = false;
+    }
+
     // --- 5. 核心交互按钮事件 ---
     async function handleMainBtnClick(e) {
       e.stopPropagation();
 
       if (appState === 'READY') {
-        // 核心要求：若音乐是关闭状态则开启；若已是开启状态则继续播放，绝不重开或打断
-        turnOnMusic();
-
+        // 不碰音乐开关，只处理吹蜡烛业务逻辑
         mainBtn.innerText = "Connecting...";
         appState = 'BLOWING';
         mainBtn.className = "btn-blow";
@@ -543,7 +547,7 @@
               canBlow = true;
               blowFrames = 0;
             }
-          }, 900);
+          }, 800);
         } else {
           canBlow = true;
         }
@@ -567,9 +571,11 @@
     function extinguish() {
       if (!isLit) return;
       isLit = false;
-      canBlow = false;
       blowFrames = 0;
       appState = 'EXTINGUISHED';
+
+      // 1. 彻底关闭麦克风占用
+      releaseMicrophone();
 
       mainTitle.innerText = "Wish Granted!";
       subTitle.innerText = "May all your dreams sparkle into reality!";
@@ -577,8 +583,12 @@
       actionContainer.classList.add('hidden');
       createBurst();
 
-      // 如果尚未开启音乐，在吹灭庆祝时开启
-      turnOnMusic();
+      // 2. 延迟 150ms 等系统声卡切回媒体播放模式后，恢复用户设定的音乐
+      if (isMusicOn) {
+        setTimeout(() => {
+          resumeMusicPlayback();
+        }, 150);
+      }
 
       setTimeout(() => {
         if (!isLit) {
@@ -590,7 +600,7 @@
       }, 1700);
     }
 
-    function relight() {
+    async function relight() {
       isLit = true;
       canBlow = false;
       blowFrames = 0;
@@ -604,12 +614,14 @@
       mainBtn.innerText = "Tap or Blow";
       statusHint.innerText = "Blow onto mic or tap directly to extinguish!";
 
+      // 重新点燃时按需重新初始化麦克风
+      const ok = await requestAndStartMic();
       setTimeout(() => {
         if (isLit) {
           canBlow = true;
           blowFrames = 0;
         }
-      }, 2000);
+      }, ok ? 800 : 0);
     }
 
     // --- 7. 手势 / 鼠标滑动 3D 旋转控制 ---
