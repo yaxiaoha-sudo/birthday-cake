@@ -47,7 +47,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      padding: calc(env(safe-area-inset-top, 20px) + 20px) 15px calc(env(safe-area-inset-bottom, 20px) + 20px);
+      padding: calc(env(safe-area-inset-top, 20px) + 16px) 15px calc(env(safe-area-inset-bottom, 20px) + 20px);
     }
 
     .header {
@@ -56,6 +56,7 @@
       padding: 0 10px;
     }
 
+    /* 纯粹柔和淡粉光 */
     .header h1 {
       font-size: 2.3rem;
       font-weight: 800;
@@ -64,13 +65,13 @@
       text-shadow: 
         0 0 10px rgba(255, 133, 173, 0.45),
         0 0 20px rgba(255, 106, 176, 0.25);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       line-height: 1.25;
       white-space: nowrap;
     }
 
     .header p {
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       color: #fce7f3;
       opacity: 0.88;
       letter-spacing: 0.3px;
@@ -108,7 +109,7 @@
 
     .music-btn.active {
       opacity: 1;
-      background: rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.25);
       border-color: rgba(255, 255, 255, 0.85);
       box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
     }
@@ -120,7 +121,7 @@
     /* 居中交互容器 */
     .center-action {
       position: absolute;
-      top: 55%;
+      top: 56%;
       left: 50%;
       transform: translate(-50%, -50%) scale(1);
       pointer-events: auto;
@@ -234,9 +235,6 @@
 </head>
 <body>
 
-  <!-- 原生标准高保真音频引擎：支持自定义任何外部链接或本地 ./bgm.mp3 -->
-  <audio id="birthdayAudio" loop preload="auto" playsinline webkit-playsinline></audio>
-
   <canvas id="stage"></canvas>
 
   <div class="ui-layer">
@@ -258,39 +256,105 @@
   </div>
 
   <script>
-    // --- 1. 高品质生日歌音源配置与音频通道管理 ---
-    // 💡 提示：如果你想换成自己的 MP3，只需将你的音乐放同级目录改名为 bgm.mp3，并把这行改为: const BGM_URL = './bgm.mp3';
-    const BGM_URL = 'https://actions.google.com/sounds/v1/holidays/happy_birthday_music_box.ogg';
-
-    const bgmAudio = document.getElementById('birthdayAudio');
-    bgmAudio.src = BGM_URL;
-    bgmAudio.volume = 0.95;
-
+    // --- 1. 彻底解决国内与移动端网络限制的纯净高保真音乐系统 ---
+    let audioCtx = null;
+    let masterGain = null;
     let isMusicOn = false;
+    let musicTimer = null;
 
-    function playBGM() {
-      if (!isMusicOn) return;
-      bgmAudio.play().then(() => {
-        musicToggle.innerText = "Music: ON";
-        musicToggle.classList.add('active');
-      }).catch(err => {
-        console.warn('Audio autoplay blocked until interaction:', err);
-      });
+    function initAudioContext() {
+      if (!audioCtx) {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+        masterGain.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
     }
 
-    function pauseBGM() {
-      bgmAudio.pause();
-      musicToggle.innerText = "Music: OFF";
-      musicToggle.classList.remove('active');
+    // 纯正清脆的水晶生日歌八音盒引擎（永不依赖外部 MP3，100% 秒开秒播）
+    function playMelodyNote(freq, time, dur) {
+      if (!audioCtx || !isMusicOn) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const noteGain = audioCtx.createGain();
+
+        // 正弦波 + 三角泛音模拟清澈水晶质感
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+
+        noteGain.gain.setValueAtTime(0.0001, time);
+        noteGain.gain.linearRampToValueAtTime(0.26, time + 0.02);
+        noteGain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+        osc.connect(noteGain);
+        noteGain.connect(masterGain);
+
+        osc.start(time);
+        osc.stop(time + dur);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    // 经典的欢快明亮《Happy Birthday to You》正宗曲谱
+    const bdaySong = [
+      { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.7 }, { f: 261.63, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 329.63, d: 1.2 },
+      { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 293.66, d: 0.7 }, { f: 261.63, d: 0.7 }, { f: 392.00, d: 0.7 }, { f: 349.23, d: 1.2 },
+      { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.35 }, { f: 523.25, d: 0.7 }, { f: 440.00, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 329.63, d: 0.7 }, { f: 293.66, d: 1.0 },
+      { f: 466.16, d: 0.35 }, { f: 466.16, d: 0.35 }, { f: 440.00, d: 0.7 }, { f: 349.23, d: 0.7 }, { f: 392.00, d: 0.7 }, { f: 349.23, d: 1.5 }
+    ];
+
+    function startMusic() {
+      if (!isMusicOn) return;
+      initAudioContext();
+      if (musicTimer) clearTimeout(musicTimer);
+
+      masterGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+
+      let cur = audioCtx.currentTime + 0.05;
+      let total = 0;
+      bdaySong.forEach(n => {
+        playMelodyNote(n.f, cur, n.d * 1.15);
+        const step = n.d * 0.94;
+        cur += step;
+        total += step;
+      });
+
+      musicTimer = setTimeout(() => {
+        if (isMusicOn) startMusic();
+      }, (total + 0.3) * 1000);
+    }
+
+    function stopMusic() {
+      if (musicTimer) clearTimeout(musicTimer);
+      if (masterGain && audioCtx) {
+        masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
+    }
+
+    function updateMusicButtonUI() {
+      if (isMusicOn) {
+        musicToggle.innerText = "Music: ON";
+        musicToggle.classList.add('active');
+      } else {
+        musicToggle.innerText = "Music: OFF";
+        musicToggle.classList.remove('active');
+      }
     }
 
     musicToggle.addEventListener('click', (e) => {
       e.stopPropagation();
+      initAudioContext();
       isMusicOn = !isMusicOn;
+      updateMusicButtonUI();
       if (isMusicOn) {
-        playBGM();
+        startMusic();
       } else {
-        pauseBGM();
+        stopMusic();
       }
     });
 
@@ -302,19 +366,19 @@
     function resize() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
+      generateTextCoordinates(); // 屏幕旋转或尺寸变化时重新计算文字粒子
     }
     resize();
     window.addEventListener('resize', resize);
 
-    // --- 3. 状态机管理 ---
+    // --- 3. 状态机管理与防秒灭安全保护 ---
     let appState = 'READY'; // READY -> BLOWING -> EXTINGUISHED
     let isLit = true;
     let micStarted = false;
-    let audioCtx = null;
     let analyser = null;
     let micStream = null;
     let blowFrames = 0;
-    let canBlow = false;
+    let canBlow = false; // 吹气安全锁
 
     const mainTitle = document.getElementById('mainTitle');
     const subTitle = document.getElementById('subTitle');
@@ -322,70 +386,63 @@
     const mainBtn = document.getElementById('mainBtn');
     const statusHint = document.getElementById('statusHint');
 
-    // --- 4. 文字粒子聚合引擎："Stay Happy Stay bright / Stay you My girl" ---
+    // --- 4. 蜡烛与标题之间清晰可见的文字星尘聚合系统 ---
     const textParticles = [];
     let showTextParticles = false;
     let textMorphProgress = 0;
 
     function generateTextCoordinates() {
       const offCanvas = document.createElement('canvas');
-      offCanvas.width = 600;
-      offCanvas.height = 200;
+      offCanvas.width = 700;
+      offCanvas.height = 240;
       const offCtx = offCanvas.getContext('2d');
 
       offCtx.fillStyle = '#ffffff';
-      offCtx.font = 'bold 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      // 高清晰粗体英文
+      offCtx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
 
-      // 居中两行绘制
-      offCtx.fillText('Stay Happy Stay bright', 300, 75);
-      offCtx.fillText('Stay you My girl', 300, 125);
+      // 两行居中文字
+      offCtx.fillText('Stay Happy Stay bright', 350, 80);
+      offCtx.fillText('Stay you My girl', 350, 140);
 
-      const imgData = offCtx.getImageData(0, 0, 600, 200).data;
-      const targetCoords = [];
+      const imgData = offCtx.getImageData(0, 0, 700, 240).data;
+      const targets = [];
 
-      // 步长采样提取像素粒子点
-      const step = 4;
-      for (let y = 0; y < 200; y += step) {
-        for (let x = 0; x < 600; x += step) {
-          const alpha = imgData[(y * 600 + x) * 4 + 3];
-          if (alpha > 128) {
-            targetCoords.push({
-              tx: (x - 300) * 0.44, // 居中缩放
-              ty: (100 - y) * 0.44 + 85, // 精确放置在蜡烛上方、标题正下方
-              tz: (Math.random() - 0.5) * 8
+      const step = 3; // 高密度采样
+      for (let y = 0; y < 240; y += step) {
+        for (let x = 0; x < 700; x += step) {
+          const alpha = imgData[(y * 700 + x) * 4 + 3];
+          if (alpha > 120) {
+            targets.push({
+              tx: (x - 350) * 0.46,
+              ty: (120 - y) * 0.46 + 88, // 恰好落在蜡烛火苗与标题之间的空位
+              tz: (Math.random() - 0.5) * 6
             });
           }
         }
       }
 
-      // 初始化文字聚合粒子（从烛火周围随机产生后飞聚成字）
       textParticles.length = 0;
-      targetCoords.forEach(coord => {
+      targets.forEach(coord => {
         textParticles.push({
-          x: (Math.random() - 0.5) * 80,
-          y: 120 + (Math.random() - 0.5) * 50,
-          z: (Math.random() - 0.5) * 80,
+          x: (Math.random() - 0.5) * 120,
+          y: 120 + (Math.random() - 0.5) * 80,
+          z: (Math.random() - 0.5) * 100,
           tx: coord.tx,
           ty: coord.ty,
           tz: coord.tz,
-          size: Math.random() * 0.35 + 0.38,
-          alpha: 0,
-          color: Math.random() < 0.65 ? 'rgba(255, 255, 255, ' : 'rgba(255, 230, 160, '
+          size: Math.random() * 0.4 + 0.48, // 适度调大，保证清晰醒目
+          color: Math.random() < 0.7 ? 'rgba(255, 255, 255, ' : 'rgba(255, 235, 175, '
         });
       });
     }
 
-    generateTextCoordinates();
-
-    // --- 5. 麦克风吹气算法（带通话防降噪压制） ---
+    // --- 5. 麦克风拾音算法（带 1.8 秒防瞬间电流爆破误触锁）---
     async function requestAndStartMic() {
       try {
-        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioCtxClass();
-
-        // 核心配置：关闭自动增益与降噪，防止手机压制音乐声音
+        initAudioContext();
         micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: false,
@@ -407,10 +464,19 @@
         filter.connect(analyser);
 
         micStarted = true;
-        canBlow = true;
 
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
+
+        // 核心修复：开启麦克风的前 1.8 秒内强制关闭检测，吸收声卡开启脉冲！
+        canBlow = false;
+        blowFrames = 0;
+        setTimeout(() => {
+          if (isLit && appState === 'BLOWING') {
+            canBlow = true;
+            statusHint.innerText = "Listening: Blow steadily onto the mic!";
+          }
+        }, 1800);
 
         function detectBlow() {
           if (!isLit || !canBlow || appState !== 'BLOWING') {
@@ -428,9 +494,10 @@
           }
           const lowAverage = energySum / lowBins;
 
-          if (lowAverage > 35) {
+          // 必须检测到持续 5 帧以上真气流才熄灭
+          if (lowAverage > 36) {
             blowFrames++;
-            if (blowFrames >= 4) {
+            if (blowFrames >= 5) {
               extinguish();
               blowFrames = 0;
             }
@@ -452,10 +519,11 @@
     async function handleMainBtnClick(e) {
       e.stopPropagation();
 
-      // 点击开始吹蜡烛时：若音乐关着则自动播放，若开着则继续播不打断
+      // 点击开始吹蜡烛：音乐关着则开启，开着则平稳继续，绝不打断
       if (!isMusicOn) {
         isMusicOn = true;
-        playBGM();
+        updateMusicButtonUI();
+        startMusic();
       }
 
       // 阶段 1：点击 Ready to Blow -> 启动吹气模式
@@ -466,8 +534,7 @@
         appState = 'BLOWING';
         mainBtn.className = "btn-blow";
         mainBtn.innerText = "Tap or Blow";
-        statusHint.innerText = ok ? "Blow onto mic or tap directly to extinguish!" : "Tap the button to extinguish!";
-        canBlow = true;
+        statusHint.innerText = ok ? "Preparing... (ready in a second)" : "Tap the button to extinguish!";
         return;
       }
 
@@ -486,7 +553,7 @@
 
     mainBtn.addEventListener('click', handleMainBtnClick);
 
-    // --- 7. 吹灭动效与粒子文字聚合启动 ---
+    // --- 7. 吹灭动效与星尘文字聚合激活 ---
     function extinguish() {
       if (!isLit) return;
       isLit = false;
@@ -500,14 +567,15 @@
       actionContainer.classList.add('hidden');
       createBurst();
 
-      // 开启文字粒子汇聚
+      // 立即触发文字聚合粒子！
       showTextParticles = true;
       textMorphProgress = 0;
 
-      // 保证音乐持续沉浸播放
+      // 如果音乐关着，此时也同步开启生日音乐
       if (!isMusicOn) {
         isMusicOn = true;
-        playBGM();
+        updateMusicButtonUI();
+        startMusic();
       }
 
       setTimeout(() => {
@@ -525,7 +593,7 @@
       canBlow = false;
       blowFrames = 0;
       burstParticles.length = 0;
-      showTextParticles = false; // 重置文字粒子
+      showTextParticles = false;
 
       mainTitle.innerText = "Happy Birthday!";
       subTitle.innerText = "Make a wish and blow into the mic!";
@@ -535,6 +603,7 @@
       mainBtn.innerText = "Tap or Blow";
       statusHint.innerText = "Blow onto mic or tap directly to extinguish!";
 
+      // 点燃后给予 2 秒安全冷却，杜绝误触秒灭
       setTimeout(() => {
         if (isLit) {
           canBlow = true;
@@ -816,26 +885,24 @@
 
       // 4. 文字粒子聚合："Stay Happy Stay bright / Stay you My girl"
       if (showTextParticles) {
-        textMorphProgress = Math.min(1.0, textMorphProgress + 0.02);
-        const ease = 1 - Math.pow(1 - textMorphProgress, 3); // 平滑缓动
+        textMorphProgress = Math.min(1.0, textMorphProgress + 0.024);
+        const ease = 1 - Math.pow(1 - textMorphProgress, 3);
 
         for (let i = 0; i < textParticles.length; i++) {
           const tp = textParticles[i];
-          // 向目标文字坐标平滑吸附
           const curX = tp.x + (tp.tx - tp.x) * ease;
           const curY = tp.y + (tp.ty - tp.y) * ease;
           const curZ = tp.z + (tp.tz - tp.z) * ease;
 
-          // 微弱星光微动与闪烁
-          const shimmer = Math.sin(Date.now() * 0.004 + i) * 0.15;
-          const targetAlpha = Math.min(0.95, textMorphProgress * 1.2 + shimmer);
+          const shimmer = Math.sin(Date.now() * 0.005 + i) * 0.12;
+          const targetAlpha = Math.min(1.0, textMorphProgress * 1.3 + shimmer);
 
           const proj = project(curX, curY, curZ);
           renderQueue.push({
             x: proj.x2d,
             y: proj.y2d,
-            z: proj.z - 5,
-            size: (tp.size + shimmer * 0.1) * proj.scale,
+            z: proj.z - 8,
+            size: (tp.size + shimmer * 0.15) * proj.scale,
             color: tp.color,
             alpha: targetAlpha
           });
