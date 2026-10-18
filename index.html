@@ -507,7 +507,7 @@
       e.stopPropagation();
 
       if (appState === 'READY') {
-        // 关键改动：准备吹蜡烛时，若音乐开着就关闭音乐，关着就保持关闭
+        // 核心优化：如果音乐是开着的，立即关闭并把按钮UI改为 OFF
         if (isMusicOn) {
           stopMusic();
         }
@@ -723,28 +723,29 @@
       }
     });
 
-    // --- 9. 高密度点阵采样（更靠近蜡烛，字迹高度致密工整） ---
+    // --- 9. 高清晰度超密点阵采样（实心笔画，精准靠近蜡烛顶部） ---
     function sampleTextTargets() {
       const offCanvas = document.createElement('canvas');
       const offCtx = offCanvas.getContext('2d');
-      offCanvas.width = 640;
-      offCanvas.height = 130;
+      // 放大离屏画布分辨率，采样极度细腻
+      offCanvas.width = 720;
+      offCanvas.height = 140;
 
-      // 使用加粗紧凑字形
       offCtx.fillStyle = '#ffffff';
-      offCtx.font = '900 30px -apple-system, BlinkMacSystemFont, "Arial Black", Impact, sans-serif';
+      // 使用极粗、笔画扎实的黑体风格
+      offCtx.font = '900 32px -apple-system, BlinkMacSystemFont, "Arial Black", "PingFang SC", sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
 
-      // 两行垂直贴合紧凑
-      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 38);
-      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 88);
+      // 紧密双行排布
+      offCtx.fillText("Stay Happy Stay bright", offCanvas.width / 2, 42);
+      offCtx.fillText("Stay you My girl", offCanvas.width / 2, 94);
 
       const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height).data;
       const targets = [];
       
-      // 核心调整：采样步长收紧至 1.4px，粒子极度密集，笔画完整连贯
-      const step = 1.4;
+      // 关键优化：采样步长收紧到 0.9px，采样密度翻倍，确保笔画绝不碎裂
+      const step = 0.9;
 
       for (let y = 0; y < offCanvas.height; y += step) {
         for (let x = 0; x < offCanvas.width; x += step) {
@@ -752,12 +753,12 @@
           const py = Math.floor(y);
           const index = (py * offCanvas.width + px) * 4;
 
-          if (imgData[index + 3] > 120) {
-            // 核心调整：中心 Y 坐标设在 150（蜡烛顶在 138，紧挨蜡烛顶端上方微距空隙）
-            const tx = (px - offCanvas.width / 2) * 0.36;
-            const ty = 150 - (py - offCanvas.height / 2) * 0.36;
-            const tz = (Math.random() - 0.5) * 4;
-            targets.push({ x: tx, y: ty, z: tz });
+          // 只选取核心不透明像素，边缘极其锐利
+          if (imgData[index + 3] > 150) {
+            // 中心 Y 在 150，完美贴近蜡烛顶（Y=138）上方
+            const tx = (px - offCanvas.width / 2) * 0.32;
+            const ty = 150 - (py - offCanvas.height / 2) * 0.32;
+            targets.push({ x: tx, y: ty, z: 0 });
           }
         }
       }
@@ -801,13 +802,13 @@
         });
       }
 
-      // 2. 密集聚合为实心文字的高光星尘
+      // 2. 超高密度文字粒子：主体采用高亮度纯白与淡金
       const textParticleColors = [
         'rgba(255, 255, 255, ',
-        'rgba(255, 248, 240, ',
-        'rgba(255, 230, 242, ',
-        'rgba(254, 245, 185, ',
-        'rgba(255, 192, 203, '
+        'rgba(255, 255, 255, ',
+        'rgba(255, 252, 235, ',
+        'rgba(255, 240, 248, ',
+        'rgba(254, 243, 199, '
       ];
 
       for (let i = 0; i < textTargets.length; i++) {
@@ -815,22 +816,23 @@
         const originCandleX = candleXs[i % 3];
         
         const angle = Math.random() * Math.PI * 2;
-        const spreadSpeed = Math.random() * 5 + 1.2;
+        const spreadSpeed = Math.random() * 4.5 + 1.0;
 
         textParticles.push({
-          x: originCandleX + (Math.random() - 0.5) * 5,
+          x: originCandleX + (Math.random() - 0.5) * 4,
           y: 138 + Math.random() * 3,
-          z: (Math.random() - 0.5) * 5,
+          z: (Math.random() - 0.5) * 4,
           vx: Math.cos(angle) * spreadSpeed,
-          vy: Math.random() * 6 + 2,
+          vy: Math.random() * 5 + 2,
           vz: Math.sin(angle) * spreadSpeed,
           tx: target.x,
           ty: target.y,
           tz: target.z,
-          size: Math.random() * 0.2 + 0.55,
-          color: textParticleColors[Math.floor(Math.random() * textParticleColors.length)],
+          // 尺寸饱满，笔画无缝衔接
+          size: 0.62,
+          color: textParticleColors[i % textParticleColors.length],
           alpha: 0,
-          convergeDelay: Math.random() * 10 + 6,
+          convergeDelay: Math.random() * 8 + 6,
           age: 0,
           seed: Math.random() * 100
         });
@@ -957,19 +959,19 @@
           tp.x += tp.vx;
           tp.y += tp.vy;
           tp.z += tp.vz;
-          tp.vx *= 0.90;
-          tp.vy *= 0.90;
-          tp.vz *= 0.90;
-          tp.alpha = Math.min(1.0, tp.age / 8);
+          tp.vx *= 0.88;
+          tp.vy *= 0.88;
+          tp.vz *= 0.88;
+          tp.alpha = Math.min(1.0, tp.age / 6);
         } else {
-          // 加大吸附力度至 0.14，粒子快速归位，锁定字母笔画
-          const ease = 0.14;
+          // 提升吸附锁定速度至 0.18，稳定锚定在目标文字坐标上
+          const ease = 0.18;
           tp.x += (tp.tx - tp.x) * ease;
           tp.y += (tp.ty - tp.y) * ease;
           tp.z += (tp.tz - tp.z) * ease;
 
-          const shimmer = Math.sin(nowTime * 3.0 + tp.seed) * 0.1;
-          tp.alpha = Math.min(1.0, 0.95 + shimmer);
+          const shimmer = Math.sin(nowTime * 2.5 + tp.seed) * 0.06;
+          tp.alpha = Math.min(1.0, 0.94 + shimmer);
         }
 
         const proj = project(tp.x, tp.y, tp.z);
@@ -977,8 +979,8 @@
           renderQueue.push({
             x: proj.x2d,
             y: proj.y2d,
-            z: proj.z - 5,
-            size: tp.size * proj.scale * (tp.age > tp.convergeDelay ? 1.2 : 0.8),
+            z: proj.z - 6,
+            size: tp.size * proj.scale,
             color: tp.color,
             alpha: tp.alpha
           });
@@ -993,7 +995,7 @@
         if (item.size <= 0) continue;
         ctx.fillStyle = item.color + item.alpha + ')';
         ctx.beginPath();
-        ctx.arc(item.x, item.y, Math.max(0.35, item.size), 0, Math.PI * 2);
+        ctx.arc(item.x, item.y, Math.max(0.4, item.size), 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalCompositeOperation = 'source-over';
